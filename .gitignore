@@ -1,0 +1,81 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Django
+*.log
+db.sqlite3
+db.sqlite3-journal
+local_settings.py
+
+# Environment variables / secrets
+.env
+.env.*
+!.env.example
+
+# Django static/media output
+staticfiles/
+media/
+
+# Coverage / testing
+.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/
+.tox/
+.nox/
+
+# Type checking / linting caches
+.mypy_cache/
+.pyre/
+.ruff_cache/
+
+# IDEs / editors
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+*.DS_Store
+
+# OS files
+Thumbs.db
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Build / packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+*.whl
+
+# Model artifacts
+# Remove these entries if the team intentionally versions trained models.
+ml_models/*.pkl
+ml_models/*.joblib
+ml_models/*.pickle
+ml_models/*.onnx
+
+# Generated files
+*.tmp
+*.temp
+
+# Local database backups
+*.sqlite3
+*.sqlite3-journal
+*.sql.gz
+*.dump
