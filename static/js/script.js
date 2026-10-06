@@ -1,7 +1,6 @@
 $(function () {
-    "use strict";
-
-    const csrfToken = $('meta[name="csrf-token"]').attr("content");
+    "use strict"
+    const csrfToken = $('meta[name="csrf-token"]').attr("content")
 
     $.ajaxSetup({
         beforeSend: function (xhr, settings) {
