@@ -1,6 +1,9 @@
-from django.shortcuts import render
 from django.http import HttpRequest, HttpResponse
+from django.shortcuts import render
 
-def create_user(request: HttpRequest) -> HttpResponse:
-    context: dict = {}
-    return render(request, 'accounts/create_user.html', context)
+from core.utils import module_context
+
+
+def index(request: HttpRequest) -> HttpResponse:
+    context: dict = module_context("accounts")
+    return render(request, "accounts/index.html", context)

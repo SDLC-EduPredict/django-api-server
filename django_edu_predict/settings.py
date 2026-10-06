@@ -1,6 +1,8 @@
 import os
 from pathlib import Path
 from dotenv import load_dotenv
+from django.contrib.messages import constants as message_constants
+
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -23,10 +25,21 @@ INSTALLED_APPS = [
     'corsheaders',
 
     # django apps
+    'accounts',
+    # 'courses',
+    # 'students',
+    # 'enrolments',
+    # 'attendance',
+    # 'assignments',
+    # 'assessments',
+    # 'performance',
+    # 'notifications',
+    # 'ml_prediction',
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    "corsheaders.middleware.CorsMiddleware",
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -43,15 +56,18 @@ TEMPLATES = [
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
+                "django.template.context_processors.debug",
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                "core.context_processors.navigation",
             ],
         },
     },
 ]
 
 WSGI_APPLICATION = 'django_edu_predict.wsgi.application'
+
 DATABASES = {
     "default": {
         "ENGINE":   "django.db.backends.postgresql",
@@ -62,7 +78,6 @@ DATABASES = {
         "PORT":     os.getenv("DB_PORT"),
     }
 }
-
 
 AUTH_PASSWORD_VALIDATORS = [
     { 'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator' },
@@ -85,6 +100,7 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / "media"
 
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 MAILERS = {
     'default': {
@@ -92,7 +108,53 @@ MAILERS = {
     },
 }
 
+REDIS_URL = os.getenv("REDIS_URL")
 
+# Redis configuration for Celery
+CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL")
+CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND")
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TIMEZONE = 'Asia/Kolkata'
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_TASK_TRACK_STARTED = True
+CELERY_TASK_ACKS_LATE = True
+CELERY_TASK_ALWAYS_EAGER = os.getenv("CELERY_TASK_ALWAYS_EAGER", False)
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+
+# CORS settings
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
+]
+
+
+# REST FRAMEWORK for uploading images
+REST_FRAMEWORK = {
+    'DEFAULT_PARSER_CLASSES': [
+        'rest_framework.parsers.JSONParser',
+        'rest_framework.parsers.MultiPartParser',
+        'rest_framework.parsers.FormParser',
+    ],
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework.authentication.SessionAuthentication",
+    ],
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.IsAuthenticated",
+    ],
+    "DEFAULT_RENDERER_CLASSES": [
+        "rest_framework.renderers.JSONRenderer",
+    ],
+    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
+    "PAGE_SIZE": 20,
+}
+
+# Custom user model
+AUTH_USER_MODEL = "accounts.User"
+
+# Custom authentication backend
+AUTHENTICATION_BACKENDS = [
+    "accounts.backends.EmailOrPhoneBackend",
+]
 
 # NOTE
 # https://docs.google.com/document/d/1ZvnOAUYxl5hM5fd77eLkIgyN_uyiKcGoiz_z0LS3xfg/edit?tab=t.0
