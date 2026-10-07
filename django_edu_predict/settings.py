@@ -212,6 +212,7 @@ LOGGING = {
 # redis-server
 # celery -A nutrivision_food_recognition worker -l info
 # python manage.py seed_permissions
+# python manage.py test
 
 # seed_permissions command loads the role matrix from the report
 # running it again re-adds any default permission the Super Admin removed, so use --reset only to go back to the defaults
