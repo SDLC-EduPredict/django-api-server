@@ -213,4 +213,7 @@ LOGGING = {
 # celery -A nutrivision_food_recognition worker -l info
 # python manage.py seed_permissions
 
+# seed_permissions command loads the role matrix from the report
+# running it again re-adds any default permission the Super Admin removed, so use --reset only to go back to the defaults
+
 # source ../../learning_django/env_machine_learning/bin/activate
