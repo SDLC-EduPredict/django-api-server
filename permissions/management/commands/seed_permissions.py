@@ -26,3 +26,7 @@ class Command(BaseCommand):
                 created += was_created
 
         self.stdout.write(self.style.SUCCESS(f"{Permission.objects.count()} permissions, {created} new role permissions created."))
+
+
+# This file reduces developer's workload of adding permissions in the Django Admin's PERMISSIONS Tab one by one.
+# After creating the permissions app and the models for it, run the command below and that is what creates the permissions in Django Admin's PERMISSIONS.
