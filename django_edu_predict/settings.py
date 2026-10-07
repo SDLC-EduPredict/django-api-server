@@ -1,7 +1,6 @@
 import os
 from pathlib import Path
 from dotenv import load_dotenv
-from django.contrib.messages import constants as message_constants
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -26,6 +25,7 @@ INSTALLED_APPS = [
 
     # django apps
     'accounts',
+    'permissions',             # Permission + RolePermission tables
     # 'courses',
     # 'students',
     # 'enrolments',
@@ -88,7 +88,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 
 LANGUAGE_CODE = 'en-us'
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Asia/Kolkata'
 USE_I18N = True
 USE_TZ = True
 
@@ -102,11 +102,7 @@ MEDIA_ROOT = BASE_DIR / "media"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-MAILERS = {
-    'default': {
-        'BACKEND': 'django.core.mail.backends.console.EmailBackend',
-    },
-}
+EMAIL_BACKEND = os.getenv("EMAIL_BACKEND")
 
 REDIS_URL = os.getenv("REDIS_URL")
 
@@ -118,14 +114,12 @@ CELERY_TIMEZONE = 'Asia/Kolkata'
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_ACKS_LATE = True
-CELERY_TASK_ALWAYS_EAGER = os.getenv("CELERY_TASK_ALWAYS_EAGER", False)
+CELERY_TASK_ALWAYS_EAGER = os.getenv("CELERY_TASK_ALWAYS_EAGER")
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 
-# CORS settings
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:8000",
-    "http://127.0.0.1:8000",
-]
+# CORS: the browser only lets a website call this API if the website's address is listed here.
+# The React admin panel runs on its own address (for example http://localhost:3000 or http://localhost:5173)
+CORS_ALLOWED_ORIGINS = [origin.strip() for origin in os.getenv("CORS_ALLOWED_ORIGINS", "").split(",") if origin.strip()]
 
 
 # REST FRAMEWORK for uploading images
@@ -135,9 +129,9 @@ REST_FRAMEWORK = {
         'rest_framework.parsers.MultiPartParser',
         'rest_framework.parsers.FormParser',
     ],
-    "DEFAULT_AUTHENTICATION_CLASSES": [
-        "rest_framework.authentication.SessionAuthentication",
-    ],
+    # We do the login check ourselves with our own decorators (@jwt_required, @role_required, @permission_required),
+    # so DRF's own session login and permission check are switched off.
+    "DEFAULT_AUTHENTICATION_CLASSES": [],
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
     ],
@@ -151,10 +145,52 @@ REST_FRAMEWORK = {
 # Custom user model
 AUTH_USER_MODEL = "accounts.User"
 
+# JWT (PyJWT). Access token = short life, used on every request. Refresh token = long life, used only to get a new access token.
+# The two tokens are signed with two different secret keys (both are in .env).
+JWT_ALGORITHM = "HS256"
+JWT_SECRET_KEY = os.environ["JWT_SECRET_KEY"]
+JWT_REFRESH_SECRET_KEY = os.environ["JWT_REFRESH_SECRET_KEY"]
+ACCESS_TOKEN_LIFETIME_MINUTES = int(os.getenv("ACCESS_TOKEN_LIFETIME_MINUTES", 15))
+REFRESH_TOKEN_LIFETIME_DAYS = int(os.getenv("REFRESH_TOKEN_LIFETIME_DAYS", 7))
+
 # Custom authentication backend
 AUTHENTICATION_BACKENDS = [
     "accounts.backends.EmailOrPhoneBackend",
 ]
+
+# LOGGING
+# Instead of print(), the code writes messages like logger.warning("Failed login ...").
+# "handlers" decide where a message goes: the terminal (console) and the file logs/edu_predict.log.
+# The file is cut at 5 MB and only 3 old files are kept, so it can never fill the disk.
+# Level INFO = show INFO, WARNING and ERROR messages (hide DEBUG).
+LOG_DIR = BASE_DIR / "logs"
+LOG_DIR.mkdir(exist_ok=True)        # create the logs folder, the file handler needs it
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "verbose": {
+            "format": "{asctime} {levelname} {name} {message}",     # 2026-10-07 10:15:01 WARNING accounts.views Failed login ...
+            "style": "{",
+        },
+    },
+    "handlers": {
+        "console": {"class": "logging.StreamHandler", "formatter": "verbose"},
+        "file": {
+            "class": "logging.handlers.RotatingFileHandler",
+            "formatter": "verbose",
+            "filename": LOG_DIR / "edu_predict.log",
+            "maxBytes": 5_000_000,
+            "backupCount": 3,
+        },
+    },
+    "root": {"handlers": ["console", "file"], "level": "INFO"},
+}
+
+
+
+
 
 # NOTE
 # https://docs.google.com/document/d/1ZvnOAUYxl5hM5fd77eLkIgyN_uyiKcGoiz_z0LS3xfg/edit?tab=t.0
@@ -175,5 +211,6 @@ AUTHENTICATION_BACKENDS = [
 
 # redis-server
 # celery -A nutrivision_food_recognition worker -l info
+# python manage.py seed_permissions
 
 # source ../../learning_django/env_machine_learning/bin/activate

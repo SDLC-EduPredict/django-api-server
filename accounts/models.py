@@ -53,6 +53,13 @@ class User(AbstractBaseUser, PermissionsMixin):
     def is_admin_role(self) -> bool:
         return self.role in (self.Role.ADMIN, self.Role.SUPER_ADMIN)
 
+    def apply_role_flags(self) -> None:
+        # Only a SUPER_ADMIN may enter the Django admin site (/admin/).
+        # The React admin panel does not need is_staff, it uses the role and the permissions.
+        is_super_admin = self.role == self.Role.SUPER_ADMIN
+        self.is_staff = is_super_admin
+        self.is_superuser = is_super_admin
+
 
 class FacultyProfile(TimeStampedModel):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="faculty_profile")
@@ -67,3 +74,22 @@ class FacultyProfile(TimeStampedModel):
 
     def __str__(self) -> str:
         return f"{self.employee_code} - {self.user.get_full_name() or self.user.email}"
+
+
+class RefreshToken(TimeStampedModel):
+    # One row for every refresh token we hand out. The token itself is NOT stored, only its id (jti).
+    # This lets us revoke a refresh token (logout, refresh, password change, deactivated user).
+    jti = models.UUIDField(unique=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="refresh_tokens")
+    expires_at = models.DateTimeField()
+    revoked = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:
+        return f"{self.user.email} | {self.jti} | {'revoked' if self.revoked else 'active'}"
+
+    @property
+    def is_usable(self) -> bool:
+        return not self.revoked and self.expires_at > timezone.now()

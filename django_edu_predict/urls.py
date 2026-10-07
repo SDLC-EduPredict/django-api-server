@@ -6,7 +6,7 @@ from django.conf.urls.static import static
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("", include("core.urls")),
-    path("accounts/", include("accounts.urls")),
+    path("accounts/", include("accounts.urls.urls")),
     # path("students/", include("students.urls")),
     # path("courses/", include("courses.urls")),
     # path("enrolments/", include("enrolments.urls")),
@@ -16,6 +16,11 @@ urlpatterns = [
     # path("performance/", include("performance.urls")),
     # path("predictions/", include("ml_prediction.urls")),
     # path("notifications/", include("notifications.urls")),
+
+
+    # APIs
+    path("api/", include("accounts.urls.api_urls")),            # login, register, refresh, logout, me, admin users
+    path("api/", include("permissions.urls")),                  # roles and permissions (Super Admin)
 ]
 
 

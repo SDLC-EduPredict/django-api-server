@@ -2,13 +2,7 @@ from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 
 from accounts.forms import UserAdminChangeForm, UserAdminCreationForm
-from accounts.models import FacultyProfile, User
-
-
-class StudentProfileInline(admin.StackedInline):
-    extra = 1
-    max_num = 1
-    can_delete = False
+from accounts.models import FacultyProfile, RefreshToken, User
 
 
 class FacultyProfileInline(admin.StackedInline):
@@ -44,7 +38,7 @@ class UserAdmin(BaseUserAdmin):
         if obj is None:
             return []
         inline_by_role = {
-            User.Role.STUDENT: StudentProfileInline,
+            # User.Role.STUDENT: StudentProfileInline,
             User.Role.FACULTY: FacultyProfileInline,
         }
         inline_class = inline_by_role.get(obj.role)
@@ -58,3 +52,15 @@ class FacultyProfileAdmin(admin.ModelAdmin):
     list_select_related = ("user",)
     autocomplete_fields = ("user",)
     readonly_fields = ("created_at", "updated_at")
+
+
+@admin.register(RefreshToken)
+class RefreshTokenAdmin(admin.ModelAdmin):
+    list_display = ("user", "jti", "expires_at", "revoked", "created_at")
+    list_filter = ("revoked",)
+    search_fields = ("user__email", "jti")
+    list_select_related = ("user",)
+    readonly_fields = ("jti", "user", "expires_at", "created_at", "updated_at")
+
+    def has_add_permission(self, request) -> bool:
+        return False
