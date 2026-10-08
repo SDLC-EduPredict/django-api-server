@@ -5,6 +5,8 @@ from django.core.exceptions import ValidationError
 from django.forms.models import model_to_dict
 
 from accounts.models import User
+from accounts.otp import remove_country_code
+from core.validators import otp_validator, phone_validator
 
 
 # ---------------------------------------------------------------- Django admin site forms
@@ -113,6 +115,40 @@ class ChangePasswordForm(forms.Form):
         self.user.set_password(self.cleaned_data["password"])
         self.user.save(update_fields=["password"])
         return self.user
+
+
+class ForgotPasswordForm(forms.Form):
+    username = forms.CharField(label="Email or phone")
+
+
+class VerifyPhoneOTPForm(forms.Form):
+    phone = forms.CharField()
+    otp = forms.CharField(validators=[otp_validator])
+
+    def clean_phone(self) -> str:
+        phone = remove_country_code(self.cleaned_data["phone"])
+        phone_validator(phone)
+        return phone
+
+
+class VerifyEmailOTPForm(forms.Form):
+    email = forms.EmailField()
+    otp = forms.CharField(validators=[otp_validator])
+
+
+class ResetPasswordForm(forms.Form):
+    username = forms.CharField(label="Email or phone")
+    otp = forms.CharField(validators=[otp_validator])
+    password = forms.CharField(widget=forms.PasswordInput, label="New password")
+    confirm_password = forms.CharField(widget=forms.PasswordInput)
+
+    def clean(self):
+        cleaned_data = super().clean()
+        password = cleaned_data.get("password")
+        if password and password != cleaned_data.get("confirm_password"):
+            self.add_error("confirm_password", "Password and Confirm Password do not match.")
+        check_password_strength(self, password)
+        return cleaned_data
 
 
 # ---------------------------------------------------------------- admin panel (React) forms

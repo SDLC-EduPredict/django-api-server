@@ -13,11 +13,16 @@ from accounts.forms import (
     AdminUserCreateForm,
     AdminUserUpdateForm,
     ChangePasswordForm,
+    ForgotPasswordForm,
     LoginForm,
     ProfileUpdateForm,
     RegisterForm,
+    ResetPasswordForm,
+    VerifyEmailOTPForm,
+    VerifyPhoneOTPForm,
     with_current_values)
-from accounts.models import RefreshToken, User
+from accounts.models import OTP, RefreshToken, User
+from accounts.otp import create_otp, find_user, seconds_to_wait, send_otp, verify_otp
 from accounts.serializers import UserSerializer
 from accounts.tokens import REFRESH, build_token_response, decode_token, revoke_all_refresh_tokens
 from permissions.constants import EDIT_OWN_PROFILE, MANAGE_USERS, VIEW_OWN_PROFILE
@@ -79,7 +84,7 @@ def login_view(request):
 
 
 @api_view(["POST"])
-def refresh_view(request):
+def refresh_view(request) -> Response:
     # Body: {"refresh_token": "..."}  ->  new access token + NEW refresh token (the old one is used up)
     token = request.data.get("refresh_token", "")
 
@@ -180,20 +185,103 @@ def change_password_view(request):
 
 
 @api_view(["POST"])
-@jwt_required
 def forgot_password_view(request):
-    # form = ForgotPasswordForm(request.data, user=request.user)
+    form = ForgotPasswordForm(request.data)
 
-    # if not form.is_valid():
-    #     return Response({
-    #         "message": "Password change failed.",
-    #         "errors": form.errors
-    #     }, status=status.HTTP_400_BAD_REQUEST)
+    if not form.is_valid():
+        return Response({
+            "message": "Request failed.",
+            "errors": form.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
 
-    # form.save()
-    # revoke_all_refresh_tokens(request.user)     # every device has to login again
+    username = form.cleaned_data["username"]
+    user = find_user(username)
+    same_answer = Response({
+        "message": "If an account exists, an OTP has been sent."
+    }, status=status.HTTP_200_OK)
+
+    if user is None:
+        return same_answer
+
+    wait_seconds = seconds_to_wait(user)
+    if wait_seconds:
+        return Response({
+            "message": f"Please wait {wait_seconds} seconds before requesting another OTP."
+        }, status=status.HTTP_429_TOO_MANY_REQUESTS)
+
+    channel = OTP.Channel.EMAIL if "@" in username else OTP.Channel.SMS
+    otp = create_otp(user, channel)
+
+    try:
+        send_otp(user, channel, otp)
+    except Exception:
+        logger.exception("Could not send the OTP to %s", user.email)
+        OTP.objects.filter(user=user).delete()
+        return Response({
+            "message": "OTP could not be sent. Please try again later."
+        }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+    return same_answer
+
+
+def otp_response(user, otp):
+    error = verify_otp(user, otp) if user else "Invalid OTP."
+
+    if error:
+        return Response({"message": error}, status=status.HTTP_400_BAD_REQUEST)
+    return Response({"message": "OTP verified successfully!"}, status=status.HTTP_200_OK)
+
+
+@api_view(["POST"])
+def verify_phone_otp_view(request):
+    form = VerifyPhoneOTPForm(request.data)
+
+    if not form.is_valid():
+        return Response({
+            "message": "Verification failed.",
+            "errors": form.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    user = find_user(form.cleaned_data["phone"])
+    return otp_response(user, form.cleaned_data["otp"])
+
+
+@api_view(["POST"])
+def verify_email_otp_view(request):
+    form = VerifyEmailOTPForm(request.data)
+
+    if not form.is_valid():
+        return Response({
+            "message": "Verification failed.",
+            "errors": form.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    user = find_user(form.cleaned_data["email"])
+    return otp_response(user, form.cleaned_data["otp"])
+
+
+@api_view(["POST"])
+def reset_password_view(request):
+    form = ResetPasswordForm(request.data)
+
+    if not form.is_valid():
+        return Response({
+            "message": "Password reset failed.",
+            "errors": form.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    user = find_user(form.cleaned_data["username"])
+    error = verify_otp(user, form.cleaned_data["otp"]) if user else "Invalid OTP."
+
+    if error:
+        return Response({"message": error}, status=status.HTTP_400_BAD_REQUEST)
+
+    user.set_password(form.cleaned_data["password"])
+    user.save(update_fields=["password"])
+    OTP.objects.filter(user=user).delete()
+    revoke_all_refresh_tokens(user)
     return Response({
-        "message": "Password changed. Please login again."
+        "message": "Password reset successful. Please login with your new password."
     }, status=status.HTTP_200_OK)
 
 

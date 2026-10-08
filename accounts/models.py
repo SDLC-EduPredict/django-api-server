@@ -4,7 +4,7 @@ from django.db import models
 from django.utils import timezone
 from accounts.managers import UserManager
 from core.models import TimeStampedModel
-from core.validators import employee_code_validator, phone_validator
+from core.validators import employee_code_validator, name_validator, phone_validator
 
 class User(AbstractBaseUser, PermissionsMixin):
     class Role(models.TextChoices):
@@ -15,9 +15,9 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     email = models.EmailField(unique=True)
-    phone = models.CharField(max_length=15, unique=True, null=True, blank=True, validators=[phone_validator])
-    first_name = models.CharField(max_length=60)
-    last_name = models.CharField(max_length=60, blank=True)
+    phone = models.CharField(max_length=10, unique=True, null=True, blank=True, validators=[phone_validator])
+    first_name = models.CharField(max_length=60, validators=[name_validator])
+    last_name = models.CharField(max_length=60, blank=True, validators=[name_validator])
     role = models.CharField(max_length=12, choices=Role.choices, default=Role.STUDENT, db_index=True)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
@@ -34,6 +34,10 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     def __str__(self) -> str:
         return self.email
+
+    def clean(self) -> None:
+        super().clean()
+        self.email = self.email.lower()
 
     def get_full_name(self) -> str:
         return f"{self.first_name} {self.last_name}".strip()
@@ -93,3 +97,21 @@ class RefreshToken(TimeStampedModel):
     @property
     def is_usable(self) -> bool:
         return not self.revoked and self.expires_at > timezone.now()
+
+
+class OTP(TimeStampedModel):
+    class Channel(models.TextChoices):
+        EMAIL = "EMAIL", "Email"
+        SMS = "SMS", "SMS"
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="otps")
+    channel = models.CharField(max_length=5, choices=Channel.choices)
+    otp_hash = models.CharField(max_length=128)
+    expires_at = models.DateTimeField()
+    attempts = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:
+        return f"{self.user.email} | {self.channel}"

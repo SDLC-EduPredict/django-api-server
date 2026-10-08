@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 
 from accounts.forms import UserAdminChangeForm, UserAdminCreationForm
-from accounts.models import FacultyProfile, RefreshToken, User
+from accounts.models import OTP, FacultyProfile, RefreshToken, User
 
 
 class FacultyProfileInline(admin.StackedInline):
@@ -61,6 +61,18 @@ class RefreshTokenAdmin(admin.ModelAdmin):
     search_fields = ("user__email", "jti")
     list_select_related = ("user",)
     readonly_fields = ("jti", "user", "expires_at", "created_at", "updated_at")
+
+    def has_add_permission(self, request) -> bool:
+        return False
+
+
+@admin.register(OTP)
+class OTPAdmin(admin.ModelAdmin):
+    list_display = ("user", "channel", "attempts", "expires_at", "created_at")
+    list_filter = ("channel",)
+    search_fields = ("user__email",)
+    list_select_related = ("user",)
+    readonly_fields = ("user", "channel", "otp_hash", "expires_at", "attempts", "created_at", "updated_at")
 
     def has_add_permission(self, request) -> bool:
         return False
