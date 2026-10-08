@@ -1,9 +1,7 @@
 import uuid
 from datetime import datetime, timedelta, timezone
-
 import jwt
 from django.conf import settings
-
 from accounts.models import RefreshToken, User
 
 ACCESS = "access"
