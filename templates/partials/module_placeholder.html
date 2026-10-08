@@ -1,0 +1,33 @@
+<div class="d-flex align-items-center mb-4">
+    <span class="display-6 text-primary me-3"><i class="bi {{ module.icon }}"></i></span>
+    <div>
+        <h1 class="h3 mb-0">{{ module.label }}</h1>
+        <p class="text-body-secondary mb-0">{{ module.description }}</p>
+    </div>
+</div>
+
+<div class="alert alert-info d-flex align-items-center" role="alert">
+    <i class="bi bi-hammer me-2"></i>
+    <div>The {{ module.label|lower }} screens and APIs are built in <strong>Phase {{ module.phase }}</strong>. The database tables below already exist.</div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-header bg-body fw-semibold">Database tables in this module</div>
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr><th>Entity</th><th class="text-end">Records</th></tr>
+            </thead>
+            <tbody>
+                {% for entity in entities %}
+                <tr>
+                    <td>{{ entity.name }}</td>
+                    <td class="text-end">{% if entity.count is None %}<span class="badge text-bg-warning">run migrations</span>{% else %}{{ entity.count }}{% endif %}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="2" class="text-body-secondary">No models in this app yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>

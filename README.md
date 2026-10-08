@@ -12,7 +12,7 @@ EDU-PREDICT manages:
 - Student profiles
 - Faculty/staff profiles
 - Courses and course categories
-- Student enrollments
+- Student enrolments
 - Attendance
 - Assignments and marks
 - Assessments and assessment results
@@ -65,7 +65,7 @@ The proposed Django application structure includes:
 accounts
 courses
 students
-enrollments
+enrolments
 attendance
 assignments
 assessments
@@ -141,7 +141,7 @@ django_api_server/
 │   └── tests.py
 │
 ├── students/
-├── enrollments/
+├── enrolments/
 ├── attendance/
 ├── assignments/
 ├── assessments/
@@ -216,7 +216,7 @@ The project defines four primary roles.
 
 | Role | Main permissions |
 |---|---|
-| Student | Own profile, courses, enrollments, attendance, assignments, results and prediction |
+| Student | Own profile, courses, enrolments, attendance, assignments, results and prediction |
 | Faculty/Staff | Assigned students, attendance, marks, performance and prediction viewing |
 | Admin | Students, courses, academic records, reports and ML dashboard |
 | Super Admin | Users, roles, permissions and complete system configuration |
@@ -478,7 +478,7 @@ Expected administrative areas include:
 - Faculty
 - Courses
 - Categories
-- Enrollments
+- Enrolments
 - Attendance
 - Assignments
 - Assessments
@@ -720,7 +720,7 @@ The report's `83.7 / 100` prediction is illustrative only; it must not be hard-c
 - Courses
 - Student profiles
 - Faculty profiles
-- Enrollments
+- Enrolments
 - Attendance
 - Assignments
 - Assessments
