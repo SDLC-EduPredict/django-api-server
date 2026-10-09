@@ -40,7 +40,7 @@ def user_with_permissions(user: User) -> dict:
 # ---------------------------------------------------------------- PUBLIC
 @api_view(["POST"])
 def register_view(request):
-    form = RegisterForm(request.data)
+    form = RegisterForm(request.data)                   # validate and save incoming data
 
     if not form.is_valid():
         return Response({
@@ -48,12 +48,13 @@ def register_view(request):
             "errors": form.errors
         }, status=status.HTTP_400_BAD_REQUEST)
 
-    user = form.save()
+    user = form.save()                                  # saves the validated data to the database, creates a new User record, and returns the newly created user object
     logger.info("New student registered: %s", user.email)
     return Response({
         "message": "Registration successful. Please login.",
-        "user": UserSerializer(user).data
+        "user": UserSerializer(user).data               # format outgoing data into JSON
     }, status=status.HTTP_201_CREATED)
+    # Response uses UserSerializer(user).data to transform the new database user object into a clean Python dictionary/JSON structure to send back to the client.
 
 
 @api_view(["POST"])
