@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta, timezone as dt_timezone
 import re
 from io import StringIO
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import jwt
@@ -508,6 +509,25 @@ class ForgotPasswordTests(TestCase):
         self.assertEqual(second.status_code, 429)
         self.assertIn("wait", second.json()["message"])
         self.assertEqual(len(mail.outbox), 1)
+
+    def test_unknown_account_is_written_to_the_log(self) -> None:
+        with self.assertLogs("accounts.views.api_views", level="WARNING") as logs:
+            self.assertEqual(self.forgot("nobody@gmail.com").status_code, 200)
+        self.assertIn("no active account for 'nobody@gmail.com'", logs.output[0])
+
+    def test_sent_otp_is_written_to_the_log(self) -> None:
+        with self.assertLogs("accounts.views.api_views", level="INFO") as logs:
+            self.forgot()
+        self.assertIn("OTP sent by EMAIL to rahul@gmail.com", logs.output[0])
+
+    @override_settings(**TWILIO)
+    def test_twilio_message_id_is_written_to_the_log(self) -> None:
+        sms = SimpleNamespace(sid="SM123", status="queued")
+        with patch("accounts.otp.Client") as client_class:
+            client_class.return_value.messages.create.return_value = sms
+            with self.assertLogs("accounts.otp", level="INFO") as logs:
+                self.forgot("9876543210")
+        self.assertIn("sid=SM123 status=queued", logs.output[0])
 
     def test_forgot_password_needs_a_username(self) -> None:
         self.assertEqual(self.client.post("/api/auth/forgot-password/", {}, format="json").status_code, 400)

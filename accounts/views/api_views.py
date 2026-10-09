@@ -201,6 +201,7 @@ def forgot_password_view(request):
     }, status=status.HTTP_200_OK)
 
     if user is None:
+        logger.warning("Forgot password: no active account for '%s'", username)
         return same_answer
 
     wait_seconds = seconds_to_wait(user)
@@ -221,6 +222,7 @@ def forgot_password_view(request):
             "message": "OTP could not be sent. Please try again later."
         }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
 
+    logger.info("OTP sent by %s to %s", channel, user.email)
     return same_answer
 
 
