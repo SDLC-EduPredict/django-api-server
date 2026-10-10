@@ -157,7 +157,7 @@ def verify_phone_otp_view(request):
     error = otp_error(find_user(form.cleaned_data["phone"]), form.cleaned_data["otp"])
     if error:
         return error_response(error)
-    return success_response("OTP verified successfully!")
+    return success_response("OTP verified successfully! Your phone number is verified.")
 
 
 @api_view(["POST"])
