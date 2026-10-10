@@ -16,6 +16,7 @@ from rest_framework.test import APIClient
 from accounts.forms import UserAdminCreationForm
 from accounts.models import OTP, FacultyProfile, RefreshToken
 from accounts.serializers import UserSerializer
+from permissions.models import RolePermission
 from accounts.tokens import create_access_token
 
 User = get_user_model()
@@ -77,7 +78,7 @@ class AuthApiTests(TestCase):
         self.client = APIClient()
         self.register_data = {
             "email": "rahul@example.com", "first_name": "Rahul", "last_name": "Sen", "phone": "9876543210",
-            "password": PASSWORD, "confirm_password": PASSWORD,
+            "password": PASSWORD, "confirm_password": PASSWORD, "role": "STUDENT",
         }
 
     def login(self, username="rahul@example.com", password=PASSWORD):
@@ -87,13 +88,19 @@ class AuthApiTests(TestCase):
         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
 
     # ---- register
-    def test_register_creates_a_student_even_if_role_is_sent(self) -> None:
+    def test_register_cannot_create_an_admin(self) -> None:
         response = self.client.post("/api/auth/register/", {**self.register_data, "role": "SUPER_ADMIN"}, format="json")
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("role", response.json()["errors"])
+        self.assertEqual(User.objects.count(), 0)
+
+    def test_register_creates_a_student(self) -> None:
+        response = self.client.post("/api/auth/register/", self.register_data, format="json")
         self.assertEqual(response.status_code, 201)
         user = User.objects.get(email="rahul@example.com")
         self.assertEqual(user.role, User.Role.STUDENT)
         self.assertFalse(user.is_staff)
-        self.assertNotIn("password", response.json()["user"])
+        self.assertNotIn("password", response.json()["data"]["user"])
 
     def test_register_validation_errors(self) -> None:
         bad = {**self.register_data, "confirm_password": "different", "email": "not-an-email"}
@@ -117,7 +124,7 @@ class AuthApiTests(TestCase):
         for username in ("rahul@example.com", "9876543210"):
             response = self.login(username)
             self.assertEqual(response.status_code, 200)
-            body = response.json()
+            body = response.json()["data"]
             self.assertTrue(body["access_token"] and body["refresh_token"])
             self.assertEqual(body["user"]["role"], "STUDENT")
             self.assertIn("ENROL_IN_COURSE", body["user"]["permissions"])
@@ -156,30 +163,30 @@ class AuthApiTests(TestCase):
 
     def test_refresh_token_cannot_be_used_as_access_token(self) -> None:
         self.client.post("/api/auth/register/", self.register_data, format="json")
-        tokens = self.login().json()
+        tokens = self.login().json()["data"]
         self.auth(tokens["refresh_token"])
         self.assertEqual(self.client.get("/api/auth/me/").status_code, 401)
 
     def test_access_token_cannot_be_used_as_refresh_token(self) -> None:
         self.client.post("/api/auth/register/", self.register_data, format="json")
-        tokens = self.login().json()
+        tokens = self.login().json()["data"]
         response = self.client.post("/api/auth/refresh/", {"refresh_token": tokens["access_token"]}, format="json")
         self.assertEqual(response.status_code, 401)
 
     def test_me_returns_profile(self) -> None:
         self.client.post("/api/auth/register/", self.register_data, format="json")
-        self.auth(self.login().json()["access_token"])
+        self.auth(self.login().json()["data"]["access_token"])
         response = self.client.get("/api/auth/me/")
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()["user"]["email"], "rahul@example.com")
+        self.assertEqual(response.json()["data"]["user"]["email"], "rahul@example.com")
 
     # ---- refresh / logout
     def test_refresh_rotates_the_refresh_token(self) -> None:
         self.client.post("/api/auth/register/", self.register_data, format="json")
-        first = self.login().json()
+        first = self.login().json()["data"]
         response = self.client.post("/api/auth/refresh/", {"refresh_token": first["refresh_token"]}, format="json")
         self.assertEqual(response.status_code, 200)
-        second = response.json()
+        second = response.json()["data"]
         self.assertNotEqual(second["refresh_token"], first["refresh_token"])
         self.auth(second["access_token"])
         self.assertEqual(self.client.get("/api/auth/me/").status_code, 200)
@@ -189,7 +196,7 @@ class AuthApiTests(TestCase):
 
     def test_logout_revokes_the_refresh_token(self) -> None:
         self.client.post("/api/auth/register/", self.register_data, format="json")
-        tokens = self.login().json()
+        tokens = self.login().json()["data"]
         self.auth(tokens["access_token"])
         self.assertEqual(self.client.post("/api/auth/logout/", {"refresh_token": tokens["refresh_token"]}, format="json").status_code, 200)
         self.client.credentials()
@@ -199,13 +206,13 @@ class AuthApiTests(TestCase):
 
     def test_logout_requires_refresh_token(self) -> None:
         self.client.post("/api/auth/register/", self.register_data, format="json")
-        self.auth(self.login().json()["access_token"])
+        self.auth(self.login().json()["data"]["access_token"])
         self.assertEqual(self.client.post("/api/auth/logout/", {}, format="json").status_code, 400)
 
     # ---- profile / password
     def test_patch_profile_changes_only_sent_fields(self) -> None:
         self.client.post("/api/auth/register/", self.register_data, format="json")
-        self.auth(self.login().json()["access_token"])
+        self.auth(self.login().json()["data"]["access_token"])
         response = self.client.patch("/api/auth/profile/", {"first_name": "Rahul Kumar"}, format="json")
         self.assertEqual(response.status_code, 200)
         user = User.objects.get(email="rahul@example.com")
@@ -213,14 +220,14 @@ class AuthApiTests(TestCase):
 
     def test_patch_profile_cannot_change_role_or_email(self) -> None:
         self.client.post("/api/auth/register/", self.register_data, format="json")
-        self.auth(self.login().json()["access_token"])
+        self.auth(self.login().json()["data"]["access_token"])
         self.client.patch("/api/auth/profile/", {"role": "SUPER_ADMIN", "email": "x@example.com"}, format="json")
         user = User.objects.get(phone="9876543210")
         self.assertEqual((user.role, user.email), ("STUDENT", "rahul@example.com"))
 
     def test_change_password_revokes_refresh_tokens(self) -> None:
         self.client.post("/api/auth/register/", self.register_data, format="json")
-        tokens = self.login().json()
+        tokens = self.login().json()["data"]
         self.auth(tokens["access_token"])
         new = "An0ther-Pass-456!"
         response = self.client.post(
@@ -234,7 +241,7 @@ class AuthApiTests(TestCase):
 
     def test_change_password_wrong_old_password(self) -> None:
         self.client.post("/api/auth/register/", self.register_data, format="json")
-        self.auth(self.login().json()["access_token"])
+        self.auth(self.login().json()["data"]["access_token"])
         response = self.client.post(
             "/api/auth/change-password/", {"old_password": "nope", "password": PASSWORD, "confirm_password": PASSWORD}, format="json"
         )
@@ -264,11 +271,11 @@ class AdminUserApiTests(TestCase):
 
     def test_user_list_filters_and_pagination(self) -> None:
         self.act_as(self.super_admin)
-        body = self.client.get("/api/admin/users/?role=STUDENT").json()
+        body = self.client.get("/api/admin/users/?role=STUDENT").json()["data"]
         self.assertEqual(body["count"], 1)
         self.assertEqual(body["results"][0]["email"], "stud@example.com")
-        self.assertEqual(self.client.get("/api/admin/users/?search=manager").json()["count"], 1)
-        self.assertEqual(len(self.client.get("/api/admin/users/?page_size=2").json()["results"]), 2)
+        self.assertEqual(self.client.get("/api/admin/users/?search=manager").json()["data"]["count"], 1)
+        self.assertEqual(len(self.client.get("/api/admin/users/?page_size=2").json()["data"]["results"]), 2)
 
     def test_create_users_of_any_role(self) -> None:
         self.act_as(self.super_admin)
@@ -319,7 +326,7 @@ class ValidationRuleTests(TestCase):
         self.client = APIClient()
         self.data = {
             "email": "dion@gmail.com", "first_name": "Dion", "last_name": "Smith", "phone": "1234567890",
-            "password": PASSWORD, "confirm_password": PASSWORD,
+            "password": PASSWORD, "confirm_password": PASSWORD, "role": "STUDENT",
         }
 
     def register(self, **changes):
@@ -579,7 +586,7 @@ class ForgotPasswordTests(TestCase):
         self.assertIn("expired", response.json()["message"])
 
     def test_reset_password_with_otp(self) -> None:
-        tokens = self.client.post("/api/auth/login/", {"username": "rahul@gmail.com", "password": PASSWORD}, format="json").json()
+        tokens = self.client.post("/api/auth/login/", {"username": "rahul@gmail.com", "password": PASSWORD}, format="json").json()["data"]
         self.forgot()
         otp = self.email_otp()
         self.assertEqual(self.reset(otp).status_code, 200)
@@ -650,3 +657,172 @@ class ChangePasswordTests(TestCase):
 
     def test_confirm_password_must_match(self) -> None:
         self.assertIn("confirm_password", self.change(confirm_password="Different@1").json()["errors"])
+
+
+class RoleRegistrationTests(TestCase):
+    def setUp(self) -> None:
+        call_command("seed_permissions", stdout=StringIO())
+        self.client = APIClient()
+        self.data = {
+            "email": "fay@gmail.com", "first_name": "Fay", "last_name": "Roy", "phone": "9000000001",
+            "password": PASSWORD, "confirm_password": PASSWORD, "role": "FACULTY",
+        }
+
+    def register(self, **changes):
+        return self.client.post("/api/auth/register/", {**self.data, **changes}, format="json")
+
+    def test_role_is_required(self) -> None:
+        data = {key: value for key, value in self.data.items() if key != "role"}
+        response = self.client.post("/api/auth/register/", data, format="json")
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("role", response.json()["errors"])
+
+    def test_only_student_and_faculty_can_be_chosen(self) -> None:
+        for role in ["ADMIN", "SUPER_ADMIN", "HACKER", "student", ""]:
+            with self.subTest(role=role):
+                response = self.register(role=role)
+                self.assertEqual(response.status_code, 400)
+                self.assertIn("role", response.json()["errors"])
+        self.assertEqual(User.objects.count(), 0)
+
+    def test_student_is_active_immediately(self) -> None:
+        response = self.register(role="STUDENT")
+        self.assertEqual(response.status_code, 201)
+        user = User.objects.get(email="fay@gmail.com")
+        self.assertEqual((user.role, user.is_active, user.is_staff), ("STUDENT", True, False))
+        login = self.client.post("/api/auth/login/", {"username": "fay@gmail.com", "password": PASSWORD}, format="json")
+        self.assertEqual(login.status_code, 200)
+
+    def test_faculty_must_be_approved_before_login(self) -> None:
+        response = self.register()
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.json()["data"]["user"]["role"], "FACULTY")
+        self.assertIn("approves", response.json()["message"])
+        self.assertFalse(User.objects.get(email="fay@gmail.com").is_active)
+
+        login = self.client.post("/api/auth/login/", {"username": "fay@gmail.com", "password": PASSWORD}, format="json")
+        self.assertEqual(login.status_code, 403)
+        self.assertIn("not active", login.json()["message"])
+
+        wrong = self.client.post("/api/auth/login/", {"username": "fay@gmail.com", "password": "Wrong@123"}, format="json")
+        self.assertEqual(wrong.status_code, 401)
+
+    def test_admin_approves_the_faculty_account(self) -> None:
+        self.register()
+        faculty = User.objects.get(email="fay@gmail.com")
+        super_admin = User.objects.create_superuser("admin@gmail.com", PASSWORD, first_name="Admin")
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {create_access_token(super_admin)}")
+
+        pending = self.client.get("/api/admin/users/?role=FACULTY&is_active=false").json()["data"]
+        self.assertEqual(pending["count"], 1)
+
+        approve = self.client.patch(f"/api/admin/users/{faculty.id}/", {"is_active": True}, format="json")
+        self.assertEqual(approve.status_code, 200)
+
+        self.client.credentials()
+        login = self.client.post("/api/auth/login/", {"username": "fay@gmail.com", "password": PASSWORD}, format="json")
+        self.assertEqual(login.status_code, 200)
+        self.assertEqual(login.json()["data"]["user"]["role"], "FACULTY")
+        self.assertIn("MARK_ATTENDANCE", login.json()["data"]["user"]["permissions"])
+
+
+class EmailVerificationTests(TestCase):
+    def setUp(self) -> None:
+        call_command("seed_permissions", stdout=StringIO())
+        self.client = APIClient()
+        self.user = User.objects.create_user("rahul@gmail.com", PASSWORD, first_name="Rahul", phone="9876543210")
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {create_access_token(self.user)}")
+        no_wait = patch("accounts.otp.RESEND_SECONDS", 0)
+        no_wait.start()
+        self.addCleanup(no_wait.stop)
+
+    def test_new_user_is_not_verified(self) -> None:
+        self.assertFalse(self.user.email_verified)
+
+    def test_email_is_verified_with_the_otp(self) -> None:
+        response = self.client.post("/api/auth/send-email-verification/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(mail.outbox), 1)
+        otp = re.search(r"\b(\d{6})\b", mail.outbox[0].body).group(1)
+
+        self.client.credentials()
+        verify = self.client.post("/api/auth/verify-email-otp/", {"email": "rahul@gmail.com", "otp": otp}, format="json")
+        self.assertEqual(verify.status_code, 200)
+        self.assertTrue(User.objects.get(pk=self.user.pk).email_verified)
+
+    def test_wrong_otp_does_not_verify_the_email(self) -> None:
+        self.client.post("/api/auth/send-email-verification/")
+        verify = self.client.post("/api/auth/verify-email-otp/", {"email": "rahul@gmail.com", "otp": "000000"}, format="json")
+        self.assertEqual(verify.status_code, 400)
+        self.assertFalse(User.objects.get(pk=self.user.pk).email_verified)
+
+    def test_verified_user_is_told_so_and_no_mail_is_sent(self) -> None:
+        self.user.email_verified = True
+        self.user.save()
+        response = self.client.post("/api/auth/send-email-verification/")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("already verified", response.json()["message"])
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_sending_needs_login(self) -> None:
+        self.client.credentials()
+        self.assertEqual(self.client.post("/api/auth/send-email-verification/").status_code, 401)
+
+    def test_admin_can_mark_an_email_as_verified(self) -> None:
+        super_admin = User.objects.create_superuser("admin@gmail.com", PASSWORD, first_name="Admin")
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {create_access_token(super_admin)}")
+        response = self.client.patch(f"/api/admin/users/{self.user.id}/", {"email_verified": True}, format="json")
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(User.objects.get(pk=self.user.pk).email_verified)
+
+
+class ResponseFormatTests(TestCase):
+    KEYS = {"status", "status_code", "message", "data", "errors"}
+
+    def setUp(self) -> None:
+        call_command("seed_permissions", stdout=StringIO())
+        self.client = APIClient()
+        self.user = User.objects.create_user("rahul@gmail.com", PASSWORD, first_name="Rahul")
+
+    def test_success_response_shape(self) -> None:
+        response = self.client.post("/api/auth/login/", {"username": "rahul@gmail.com", "password": PASSWORD}, format="json")
+        body = response.json()
+        self.assertEqual(set(body), self.KEYS)
+        self.assertEqual((body["status"], body["status_code"], body["errors"]), ("success", 200, None))
+        self.assertTrue(body["data"]["access_token"])
+
+    def test_validation_error_shape(self) -> None:
+        response = self.client.post("/api/auth/login/", {}, format="json")
+        body = response.json()
+        self.assertEqual(set(body), self.KEYS)
+        self.assertEqual((body["status"], body["status_code"], body["data"]), ("error", 400, None))
+        self.assertIn("username", body["errors"])
+
+    def test_unauthorized_and_forbidden_shape(self) -> None:
+        no_token = self.client.get("/api/auth/me/").json()
+        self.assertEqual((set(no_token), no_token["status"], no_token["status_code"]), (self.KEYS, "error", 401))
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {create_access_token(self.user)}")
+        forbidden = self.client.get("/api/admin/users/").json()
+        self.assertEqual((set(forbidden), forbidden["status"], forbidden["status_code"]), (self.KEYS, "error", 403))
+
+    def test_permission_error_names_the_missing_permission(self) -> None:
+        RolePermission.objects.filter(role="STUDENT", permission__name="VIEW_OWN_PROFILE").delete()
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {create_access_token(self.user)}")
+        response = self.client.get("/api/auth/me/")
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.json()["errors"], {"required_permission": "VIEW_OWN_PROFILE"})
+
+    def test_wrong_method_and_broken_json_use_the_same_shape(self) -> None:
+        wrong_method = self.client.get("/api/auth/login/")
+        self.assertEqual(wrong_method.status_code, 405)
+        self.assertEqual((set(wrong_method.json()), wrong_method.json()["status"]), (self.KEYS, "error"))
+        broken = self.client.post("/api/auth/login/", "{not json", content_type="application/json")
+        self.assertEqual(broken.status_code, 400)
+        self.assertEqual((set(broken.json()), broken.json()["status"]), (self.KEYS, "error"))
+
+    def test_list_response_keeps_the_pagination_inside_data(self) -> None:
+        super_admin = User.objects.create_superuser("admin@gmail.com", PASSWORD, first_name="Admin")
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {create_access_token(super_admin)}")
+        body = self.client.get("/api/admin/users/").json()
+        self.assertEqual(set(body), self.KEYS)
+        self.assertEqual(set(body["data"]), {"count", "next", "previous", "results"})
