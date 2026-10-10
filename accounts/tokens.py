@@ -47,8 +47,7 @@ def decode_token(token: str, token_type: str) -> dict:
         token,
         secret,
         algorithms=[settings.JWT_ALGORITHM],
-        options={"require": ["exp", "iat", "user_id", "type", "jti"]},
-    )
+        options={"require": ["exp", "iat", "user_id", "type", "jti"]})
     if payload["type"] != token_type:
         raise jwt.InvalidTokenError(f"Expected a {token_type} token")
     return payload
