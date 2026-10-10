@@ -103,6 +103,8 @@ MEDIA_ROOT = BASE_DIR / "media"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
+# ----------------------------------- EMAIL -----------------------------------
+
 EMAIL_BACKEND = os.getenv("EMAIL_BACKEND")
 EMAIL_HOST = os.getenv("EMAIL_HOST")
 EMAIL_PORT = int(os.getenv("EMAIL_PORT"))
@@ -113,10 +115,14 @@ EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER")
 EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL")
 
+# ----------------------------------- TWILIO -----------------------------------
+
 TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")
 TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
 TWILIO_PHONE_NUMBER = os.getenv("TWILIO_PHONE_NUMBER")
 SMS_COUNTRY_CODE = os.getenv("SMS_COUNTRY_CODE")
+
+# ----------------------------------- REDIS-CELERY -----------------------------------
 
 REDIS_URL = os.getenv("REDIS_URL")
 
@@ -130,6 +136,9 @@ CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_ACKS_LATE = True
 CELERY_TASK_ALWAYS_EAGER = os.getenv("CELERY_TASK_ALWAYS_EAGER")
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+
+
+# ----------------------------------- REST_FRAMEWORK -----------------------------------
 
 # CORS: the browser only lets a website call this API if the website's address is listed here.
 # The React admin panel runs on its own address (for example http://localhost:3000 or http://localhost:5173)
@@ -157,8 +166,9 @@ REST_FRAMEWORK = {
     "PAGE_SIZE": 20,
 }
 
-# Custom user model
-AUTH_USER_MODEL = "accounts.User"
+# ----------------------------------- JWT -----------------------------------
+
+AUTH_USER_MODEL = "accounts.User"                               # Custom user model
 
 # JWT (PyJWT). Access token = short life, used on every request. Refresh token = long life, used only to get a new access token.
 # The two tokens are signed with two different secret keys (both are in .env).
@@ -173,11 +183,8 @@ AUTHENTICATION_BACKENDS = [
     "accounts.backends.EmailOrPhoneBackend",
 ]
 
-# LOGGING
-# Instead of print(), the code writes messages like logger.warning("Failed login ...").
-# "handlers" decide where a message goes: the terminal (console) and the file logs/edu_predict.log.
-# The file is cut at 5 MB and only 3 old files are kept, so it can never fill the disk.
-# Level INFO = show INFO, WARNING and ERROR messages (hide DEBUG).
+# ----------------------------------- LOGGING -----------------------------------
+
 LOG_DIR = BASE_DIR / "logs"
 LOG_DIR.mkdir(exist_ok=True)        # create the logs folder, the file handler needs it
 
