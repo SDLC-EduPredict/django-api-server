@@ -17,6 +17,7 @@ urlpatterns = [
 
     # Needs an access token
     path("auth/logout/", api_views.logout_view, name="logout"),
+    path("auth/send-email-verification/", api_views.send_email_verification_view, name="send_email_verification"),
     path("auth/me/", api_views.me_view, name="me"),
     path("auth/profile/", api_views.profile_update_view, name="profile_update"),
     path("auth/change-password/", api_views.change_password_view, name="change_password"),

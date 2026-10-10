@@ -42,7 +42,8 @@ def check_password_strength(form: forms.Form, password: str | None, user: User |
 
 # ---------------------------------------------------------------- public API forms
 class RegisterForm(forms.ModelForm):
-    # Public registration. The role is NOT a field here, so nobody can register as an admin.
+    # Public registration. Only STUDENT and FACULTY can be chosen, so nobody can register as an admin.
+    role = forms.ChoiceField(choices=[(User.Role.STUDENT, "Student"), (User.Role.FACULTY, "Faculty")])
     password = forms.CharField(widget=forms.PasswordInput)
     confirm_password = forms.CharField(widget=forms.PasswordInput)
 
@@ -66,14 +67,16 @@ class RegisterForm(forms.ModelForm):
 
     def save(self) -> User:
         data = self.cleaned_data
-        # create_user() of managers.py: normalizes the email, hashes the password and saves the user
+        # create_user() of managers.py: normalizes the email, hashes the password and saves the user.
+        # A faculty account stays inactive until an admin approves it (PATCH /api/admin/users/<id>/ {"is_active": true}).
         return User.objects.create_user(
             email=data["email"],
             password=data["password"],
             first_name=data["first_name"],
             last_name=data["last_name"],
             phone=data["phone"],
-            role=User.Role.STUDENT)
+            role=data["role"],
+            is_active=data["role"] != User.Role.FACULTY)
 
 
 class LoginForm(forms.Form):

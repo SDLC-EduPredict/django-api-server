@@ -1,9 +1,9 @@
 import logging
 from functools import wraps
 from rest_framework import status
-from rest_framework.response import Response
 
 from accounts.models import User
+from core.responses import error_response
 from permissions.models import RolePermission
 
 logger = logging.getLogger(__name__)
@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 def permission_required(permission_name):
     # While consuming, this must be placed BELOW @jwt_required, because it needs request.user
-    def decorator(view_func):
+    def decorator(view_func: object) -> object:
         @wraps(view_func)
         def wrapper(request, *args, **kwargs):
             user_role = request.user.role
@@ -26,10 +26,10 @@ def permission_required(permission_name):
                     user_role,
                     permission_name,
                     request.path)
-                return Response({
-                    "message": "You do not have permission to perform this action.",
-                    "required_permission": permission_name
-                }, status=status.HTTP_403_FORBIDDEN)
+                return error_response(
+                    "You do not have permission to perform this action.",
+                    {"required_permission": permission_name},
+                    status.HTTP_403_FORBIDDEN)
             return view_func(request, *args, **kwargs)
         return wrapper
     return decorator

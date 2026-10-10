@@ -1,9 +1,9 @@
 from rest_framework import status
 from rest_framework.decorators import api_view
-from rest_framework.response import Response
 
 from accounts.decorators import jwt_required, role_required
 from accounts.models import User
+from core.responses import error_response, success_response
 from permissions.constants import MANAGE_PERMISSIONS
 from permissions.decorators import permission_required
 from permissions.forms import RolePermissionsForm
@@ -25,11 +25,10 @@ def roles_with_permissions() -> dict[str, list[str]]:
 @permission_required(MANAGE_PERMISSIONS)
 def permission_list(request):
     all_permissions = PermissionSerializer(Permission.objects.all(), many=True).data
-    return Response({
-        "message": "All permissions and the permissions of every role",
+    return success_response("All permissions and the permissions of every role.", {
         "permissions": all_permissions,
         "roles": roles_with_permissions(),
-    }, status=status.HTTP_200_OK)
+    })
 
 
 @api_view(["GET", "PUT"])
@@ -38,27 +37,24 @@ def permission_list(request):
 @permission_required(MANAGE_PERMISSIONS)
 def role_permissions(request, role):
     if role not in User.Role.values:
-        return Response({"message": f"Unknown role '{role}'."}, status=status.HTTP_404_NOT_FOUND)
+        return error_response(f"Unknown role '{role}'.", status_code=status.HTTP_404_NOT_FOUND)
 
     if request.method == "GET":
-        return Response({"role": role, "permissions": get_permission_names(role)}, status=status.HTTP_200_OK)
+        return success_response("Role permissions fetched successfully.", {
+            "role": role,
+            "permissions": get_permission_names(role),
+        })
 
     # PUT: replace the permissions of the role with the list that was sent
     if role == User.Role.SUPER_ADMIN:
-        return Response({
-            "message": "The Super Admin always has every permission and cannot be edited."
-        }, status=status.HTTP_400_BAD_REQUEST)
+        return error_response("The Super Admin always has every permission and cannot be edited.")
 
     form = RolePermissionsForm(request.data, role=role)
     if not form.is_valid():
-        return Response({
-            "message": "Update failed.", 
-            "errors": form.errors
-        }, status=status.HTTP_400_BAD_REQUEST)
+        return error_response("Update failed.", form.errors)
 
     saved = form.save()
-    return Response({
-        "message": "Role permissions updated successfully!",
+    return success_response("Role permissions updated successfully!", {
         "role": role,
-        "permissions": saved
+        "permissions": saved,
     })

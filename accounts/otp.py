@@ -56,8 +56,10 @@ def send_sms(phone: str, message: str) -> None:
             return
         raise ImproperlyConfigured("Set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN and TWILIO_PHONE_NUMBER in .env")
 
+    to_number = settings.SMS_COUNTRY_CODE + phone
     client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
-    client.messages.create(to=settings.SMS_COUNTRY_CODE + phone, from_=settings.TWILIO_PHONE_NUMBER, body=message)
+    sms = client.messages.create(to=to_number, from_=settings.TWILIO_PHONE_NUMBER, body=message)
+    logger.info("Twilio accepted the SMS to %s: sid=%s status=%s", to_number, sms.sid, sms.status)
 
 
 def send_otp(user: User, channel: str, otp: str) -> None:

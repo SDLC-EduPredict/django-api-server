@@ -50,7 +50,7 @@ class PermissionApiTests(TestCase):
         self.act_as(self.admin)
         self.assertEqual(self.client.get("/api/admin/permissions/").status_code, 403)
         self.act_as(self.super_admin)
-        body = self.client.get("/api/admin/permissions/").json()
+        body = self.client.get("/api/admin/permissions/").json()["data"]
         self.assertEqual(len(body["permissions"]), len(PERMISSION_DESCRIPTIONS))
         self.assertEqual(set(body["roles"]), {"STUDENT", "FACULTY", "ADMIN", "SUPER_ADMIN"})
 
@@ -60,7 +60,7 @@ class PermissionApiTests(TestCase):
         response = self.client.put(url, {"permissions": ["VIEW_STUDENTS", "ADD_COURSE"]}, format="json")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(get_permission_names("FACULTY"), ["ADD_COURSE", "VIEW_STUDENTS"])
-        self.assertEqual(self.client.get(url).json()["permissions"], ["ADD_COURSE", "VIEW_STUDENTS"])
+        self.assertEqual(self.client.get(url).json()["data"]["permissions"], ["ADD_COURSE", "VIEW_STUDENTS"])
 
         faculty = User.objects.create_user("fay@example.com", PASSWORD, first_name="Fay", role=User.Role.FACULTY)
         self.act_as(faculty)

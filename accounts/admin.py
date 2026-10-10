@@ -29,10 +29,12 @@ class UserAdmin(BaseUserAdmin):
         ("Permissions", {"fields": ("is_active", "is_staff", "is_superuser", "groups", "user_permissions")}),
         ("Important dates", {"fields": ("last_login", "date_joined")}),)
 
-    add_fieldsets = ((None, {
-        "classes": ("wide",),
-        "fields": ("email", "first_name", "last_name", "phone", "role", "password1", "password2"),
-    }))
+    add_fieldsets = [
+        (None, {
+            "classes": ("wide",),
+            "fields": ("email", "first_name", "last_name", "phone", "role", "password1", "password2"),
+        }),
+    ]
 
     def get_inline_instances(self, request, obj=None):
         if obj is None:
