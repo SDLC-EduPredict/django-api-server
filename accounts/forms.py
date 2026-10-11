@@ -4,7 +4,7 @@ from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from django.forms.models import model_to_dict
 
-from accounts.models import User
+from accounts.models import User, FacultyProfile
 from accounts.otp import remove_country_code
 from core.validators import otp_validator, phone_validator
 
@@ -89,6 +89,12 @@ class ProfileUpdateForm(forms.ModelForm):
     class Meta:
         model = User
         fields: tuple = ("first_name", "last_name", "phone")
+
+
+class FacultyProfileForm(forms.ModelForm):
+    class Meta:
+        model = FacultyProfile
+        fields: tuple = ("designation", "expertise", "bio", "photo")
 
 
 class ChangePasswordForm(forms.Form):

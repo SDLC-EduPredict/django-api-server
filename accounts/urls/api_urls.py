@@ -21,6 +21,7 @@ urlpatterns = [
     path("auth/me/", api_views.me_view, name="me"),
     path("auth/profile/", api_views.profile_update_view, name="profile_update"),
     path("auth/change-password/", api_views.change_password_view, name="change_password"),
+    path("faculty/profile/", api_views.faculty_profile_view, name="faculty_profile"),
 
     # Super Admin (React admin panel)
     path("admin/users/", api_views.user_list_create, name="user_list_create"),

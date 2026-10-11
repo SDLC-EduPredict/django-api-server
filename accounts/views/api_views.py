@@ -12,6 +12,7 @@ from accounts.forms import (
     AdminUserCreateForm,
     AdminUserUpdateForm,
     ChangePasswordForm,
+    FacultyProfileForm,
     ForgotPasswordForm,
     LoginForm,
     ProfileUpdateForm,
@@ -20,9 +21,9 @@ from accounts.forms import (
     VerifyEmailOTPForm,
     VerifyPhoneOTPForm,
     with_current_values)
-from accounts.models import OTP, RefreshToken, User
+from accounts.models import OTP, FacultyProfile, RefreshToken, User
 from accounts.otp import create_otp, find_user, seconds_to_wait, send_otp, verify_otp
-from accounts.serializers import UserSerializer
+from accounts.serializers import FacultyProfileSerializer, UserSerializer
 from accounts.tokens import REFRESH, build_token_response, decode_token, revoke_all_refresh_tokens
 from core.responses import error_response, success_response
 from permissions.constants import EDIT_OWN_PROFILE, MANAGE_USERS, VIEW_OWN_PROFILE
@@ -257,6 +258,40 @@ def change_password_view(request):
     form.save()
     revoke_all_refresh_tokens(request.user)     # every device has to login again
     return success_response("Password changed. Please login again.")
+
+
+@api_view(["GET", "PATCH"])
+@jwt_required
+@role_required(User.Role.FACULTY)
+def faculty_profile_view(request):
+    profile, _ = FacultyProfile.objects.get_or_create(user=request.user)
+
+    if request.method == "GET":
+        return show_faculty_profile(request, profile)
+    return update_faculty_profile(request, profile)
+
+
+@permission_required(VIEW_OWN_PROFILE)
+def show_faculty_profile(request, profile):
+    data = FacultyProfileSerializer(profile, context={"request": request}).data
+    return success_response("Faculty profile fetched successfully.", {"profile": data})
+
+
+@permission_required(EDIT_OWN_PROFILE)
+def update_faculty_profile(request, profile):
+    user_form = ProfileUpdateForm(with_current_values(request.user, ProfileUpdateForm, request.data), instance=request.user)
+    profile_form = FacultyProfileForm(with_current_values(profile, FacultyProfileForm, request.data), request.FILES, instance=profile)
+
+    user_form_ok = user_form.is_valid()
+    profile_form_ok = profile_form.is_valid()
+    if not (user_form_ok and profile_form_ok):
+        return error_response("Profile update failed.", {**user_form.errors, **profile_form.errors})
+
+    user_form.save()
+    profile = profile_form.save()
+    logger.info("Faculty profile updated: %s", request.user.email)
+    data = FacultyProfileSerializer(profile, context={"request": request}).data
+    return success_response("Faculty profile updated successfully!", {"profile": data})
 
 
 # ---------------------------------------------------------------- ADMIN PANEL (React)

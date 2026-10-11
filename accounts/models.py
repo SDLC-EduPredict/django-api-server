@@ -67,7 +67,7 @@ class User(AbstractBaseUser, PermissionsMixin):
 
 class FacultyProfile(TimeStampedModel):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="faculty_profile")
-    employee_code = models.CharField(max_length=10, unique=True, validators=[employee_code_validator])
+    employee_code = models.CharField(max_length=10, unique=True, blank=True, validators=[employee_code_validator])
     designation = models.CharField(max_length=100, blank=True)
     expertise = models.CharField(max_length=255, blank=True)
     bio = models.TextField(blank=True)
@@ -78,6 +78,13 @@ class FacultyProfile(TimeStampedModel):
 
     def __str__(self) -> str:
         return f"{self.employee_code} - {self.user.get_full_name() or self.user.email}"
+
+    def save(self, *args, **kwargs):
+        if not self.employee_code:
+            codes = FacultyProfile.objects.values_list("employee_code", flat=True)
+            numbers = [int(code.split("-")[1]) for code in codes]
+            self.employee_code = f"FAC-{max(numbers, default=0) + 1:03d}"
+        super().save(*args, **kwargs)
 
 
 class RefreshToken(TimeStampedModel):

@@ -3,11 +3,19 @@ from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 
 from accounts.forms import UserAdminChangeForm, UserAdminCreationForm
 from accounts.models import OTP, FacultyProfile, RefreshToken, User
+from students.models import StudentProfile
+
+
+class StudentProfileInline(admin.StackedInline):
+    model = StudentProfile
+    extra = 0
+    max_num = 1
+    can_delete = False
 
 
 class FacultyProfileInline(admin.StackedInline):
     model = FacultyProfile
-    extra = 1
+    extra = 0
     max_num = 1
     can_delete = False
 
@@ -40,7 +48,7 @@ class UserAdmin(BaseUserAdmin):
         if obj is None:
             return []
         inline_by_role = {
-            # User.Role.STUDENT: StudentProfileInline,
+            User.Role.STUDENT: StudentProfileInline,
             User.Role.FACULTY: FacultyProfileInline,
         }
         inline_class = inline_by_role.get(obj.role)
