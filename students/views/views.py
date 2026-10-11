@@ -1,3 +1,8 @@
+from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
+from core.utils import module_context
 
-# Create your views here.
+
+def index(request: HttpRequest) -> HttpResponse:
+    context: dict = module_context("students")
+    return render(request, "students/index.html", context)
