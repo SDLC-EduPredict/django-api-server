@@ -24,17 +24,17 @@ INSTALLED_APPS = [
     'corsheaders',
 
     # django apps
-    'accounts',
-    'permissions',             # Permission + RolePermission tables
-    # 'courses',
-    # 'students',
-    # 'enrolments',
-    # 'attendance',
-    # 'assignments',
-    # 'assessments',
-    # 'performance',
-    # 'notifications',
-    # 'ml_prediction',
+    'accounts',                 # Phase 2 
+    'permissions',              # Phase 2 - Permission + RolePermission tables
+    # 'courses',                # Phase 3
+    # 'students',               # Phase 3
+    # 'enrolments',             # Phase 4
+    # 'attendance',             # Phase 4
+    # 'assignments',            # Phase 4
+    # 'assessments',            # Phase 4
+    # 'performance',            # Phase 5
+    # 'notifications',          # Phase 7
+    # 'ml_prediction',          # Phase 6
 ]
 
 MIDDLEWARE = [
