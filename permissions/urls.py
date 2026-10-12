@@ -4,6 +4,6 @@ from permissions import views
 app_name = "permissions"
 
 urlpatterns = [
-    path("admin/permissions/", views.permission_list, name="permission_list"),
-    path("admin/roles/<str:role>/permissions/", views.role_permissions, name="role_permissions"),
+    path("admin/permissions/", views.permission_list, name="permission_list"),                                  # SUPER_ADMIN - GET
+    path("admin/roles/<str:role>/permissions/", views.role_permissions, name="role_permissions"),               # SUPER_ADMIN - GET, PUT
 ]
