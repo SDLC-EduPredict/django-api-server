@@ -13,8 +13,8 @@ urlpatterns = [
     path("faculty/<uuid:user_id>/", api_views.faculty_detail, name="faculty_detail"),                                   # GET
 
     # ADMIN
-    path("admin/categories/", api_views.admin_category_list_create, name="admin_category_list_create"),                 # GET, POST
-    path("admin/categories/<int:category_id>/", api_views.admin_category_detail, name="admin_category_detail"),         # GET, PATCH, DELETE
-    path("admin/courses/", api_views.admin_course_list_create, name="admin_course_list_create"),                        # GET, POST
-    path("admin/courses/<int:course_id>/", api_views.admin_course_detail, name="admin_course_detail"),                  # GET, PATCH, DELETE
+    path("admin/categories/", api_views.admin_category_list_create, name="admin_category_list_create"),                 # ADMIN - GET, POST
+    path("admin/categories/<int:category_id>/", api_views.admin_category_detail, name="admin_category_detail"),         # ADMIN - GET, PATCH, DELETE
+    path("admin/courses/", api_views.admin_course_list_create, name="admin_course_list_create"),                        # ADMIN - GET, POST
+    path("admin/courses/<int:course_id>/", api_views.admin_course_detail, name="admin_course_detail"),                  # ADMIN - GET, PATCH, DELETE
 ]

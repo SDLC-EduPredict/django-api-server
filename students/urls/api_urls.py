@@ -9,6 +9,6 @@ urlpatterns = [
     path("student/dashboard/", api_views.student_dashboard_view, name="student_dashboard"),                         # GET
 
     # ADMIN
-    path("admin/students/", api_views.admin_student_list, name="admin_student_list"),                               # GET
-    path("admin/students/<int:student_id>/", api_views.admin_student_detail, name="admin_student_detail"),          # GET, PATCH
+    path("admin/students/", api_views.admin_student_list, name="admin_student_list"),                               # ADMIN - GET
+    path("admin/students/<int:student_id>/", api_views.admin_student_detail, name="admin_student_detail"),          # ADMIN - GET, PATCH
 ]
