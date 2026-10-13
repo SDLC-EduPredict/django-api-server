@@ -8,7 +8,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
 SECRET_KEY = os.getenv("SECRET_KEY")
 DEBUG = True
-ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '192.168.0.105']
+ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '192.168.0.103']
 
 
 INSTALLED_APPS = [
@@ -26,15 +26,15 @@ INSTALLED_APPS = [
     # django apps
     'accounts',                 # Phase 2 
     'permissions',              # Phase 2 - Permission + RolePermission tables
-    # 'courses',                # Phase 3
-    # 'students',               # Phase 3
+    'courses',                  # Phase 3
+    'students',                 # Phase 3
     # 'enrolments',             # Phase 4
     # 'attendance',             # Phase 4
     # 'assignments',            # Phase 4
     # 'assessments',            # Phase 4
     # 'performance',            # Phase 5
-    # 'notifications',          # Phase 7
     # 'ml_prediction',          # Phase 6
+    # 'notifications',          # Phase 7
 ]
 
 MIDDLEWARE = [
@@ -228,7 +228,7 @@ LOGGING = {
 
 # how to find my Mac's IP ?
 # ipconfig getifaddr en0
-# 192.168.0.105
+# 192.168.0.103
 # This change is to be made in flutter app's baseurl, django's settings.py
 
 # redis-server

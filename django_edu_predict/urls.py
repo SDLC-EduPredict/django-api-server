@@ -7,8 +7,8 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("", include("core.urls")),
     path("accounts/", include("accounts.urls.urls")),
-    # path("students/", include("students.urls")),
-    # path("courses/", include("courses.urls")),
+    path("students/", include("students.urls.urls")),
+    path("courses/", include("courses.urls.urls")),
     # path("enrolments/", include("enrolments.urls")),
     # path("attendance/", include("attendance.urls")),
     # path("assignments/", include("assignments.urls")),
@@ -21,6 +21,8 @@ urlpatterns = [
     # APIs
     path("api/", include("accounts.urls.api_urls")),            # login, register, refresh, logout, me, admin users
     path("api/", include("permissions.urls")),                  # roles and permissions (Super Admin)
+    path("api/", include("courses.urls.api_urls")),
+    path("api/", include("students.urls.api_urls")),
 ]
 
 

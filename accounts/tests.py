@@ -48,8 +48,7 @@ class UserModelTests(TestCase):
 
     def test_faculty_profile_string(self) -> None:
         user = User.objects.create_user("f@example.com", "pass12345!", first_name="Fay", role=User.Role.FACULTY)
-        profile = FacultyProfile.objects.create(user=user, employee_code="FAC-001")
-        self.assertIn("FAC-001", str(profile))
+        self.assertIn("FAC-001", str(user.faculty_profile))
 
 
 # ----------------------------------------------------------------------------- backend
@@ -483,12 +482,13 @@ class ForgotPasswordTests(TestCase):
             self.assertEqual(self.forgot("+919876543210").status_code, 200)
         self.assertEqual(client_class.return_value.messages.create.call_count, 1)
 
-    @override_settings(DEBUG=True)
+    @override_settings(DEBUG=True, TWILIO_ACCOUNT_SID="")
     def test_without_twilio_keys_the_sms_is_only_logged_while_developing(self) -> None:
         with self.assertLogs("accounts.otp", level="WARNING") as logs:
             self.assertEqual(self.forgot("9876543210").status_code, 200)
         self.assertIn("+919876543210", logs.output[0])
 
+    @override_settings(TWILIO_ACCOUNT_SID="")
     def test_without_twilio_keys_sms_fails_outside_development(self) -> None:
         response = self.forgot("9876543210")
         self.assertEqual(response.status_code, 503)
@@ -826,3 +826,50 @@ class ResponseFormatTests(TestCase):
         body = self.client.get("/api/admin/users/").json()
         self.assertEqual(set(body), self.KEYS)
         self.assertEqual(set(body["data"]), {"count", "next", "previous", "results"})
+
+class FacultyProfileApiTests(TestCase):
+    def setUp(self) -> None:
+        call_command("seed_permissions", stdout=StringIO())
+        self.client = APIClient()
+        self.faculty = User.objects.create_user("fay@gmail.com", PASSWORD, first_name="Fay", role=User.Role.FACULTY)
+        self.student = User.objects.create_user("stud@gmail.com", PASSWORD, first_name="Stu")
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {create_access_token(self.faculty)}")
+
+    def test_profile_and_employee_code_are_created_automatically(self) -> None:
+        second = User.objects.create_user("sam@gmail.com", PASSWORD, first_name="Sam", role=User.Role.FACULTY)
+        self.assertEqual(self.faculty.faculty_profile.employee_code, "FAC-001")
+        self.assertEqual(second.faculty_profile.employee_code, "FAC-002")
+        self.assertFalse(FacultyProfile.objects.filter(user=self.student).exists())
+
+    def test_role_change_to_faculty_creates_a_profile(self) -> None:
+        self.student.role = User.Role.FACULTY
+        self.student.save()
+        self.assertTrue(FacultyProfile.objects.filter(user=self.student).exists())
+
+    def test_get_own_profile(self) -> None:
+        response = self.client.get("/api/faculty/profile/")
+        self.assertEqual(response.status_code, 200)
+        profile = response.json()["data"]["profile"]
+        self.assertEqual(profile["employee_code"], "FAC-001")
+        self.assertEqual(profile["user"]["email"], "fay@gmail.com")
+
+    def test_only_faculty_can_use_it(self) -> None:
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {create_access_token(self.student)}")
+        self.assertEqual(self.client.get("/api/faculty/profile/").status_code, 403)
+        self.client.credentials()
+        self.assertEqual(self.client.get("/api/faculty/profile/").status_code, 401)
+
+    def test_patch_updates_user_and_profile_fields(self) -> None:
+        data = {"designation": "Senior Trainer", "expertise": "Python, Django", "last_name": "Roy", "employee_code": "FAC-999"}
+        response = self.client.patch("/api/faculty/profile/", data, format="json")
+        self.assertEqual(response.status_code, 200)
+        profile = response.json()["data"]["profile"]
+        self.assertEqual((profile["designation"], profile["user"]["last_name"]), ("Senior Trainer", "Roy"))
+        self.assertEqual(profile["employee_code"], "FAC-001")
+        self.assertEqual(profile["user"]["first_name"], "Fay")
+
+    def test_patch_validation_errors(self) -> None:
+        response = self.client.patch("/api/faculty/profile/", {"phone": "12345", "first_name": "F4y"}, format="json")
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("phone", response.json()["errors"])
+        self.assertIn("first_name", response.json()["errors"])
