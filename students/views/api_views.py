@@ -11,6 +11,7 @@ from core.responses import error_response, paginated_response, success_response
 from courses.models import CourseCategory
 from courses.serializers import CourseListSerializer
 from courses.views.api_views import published_courses
+from enrolments.models import Enrolment
 from permissions.constants import EDIT_OWN_PROFILE, MANAGE_STUDENTS, VIEW_OWN_PROFILE, VIEW_STUDENTS
 from permissions.decorators import permission_required
 from students.forms import StudentFilterForm, StudentProfileForm
@@ -77,6 +78,8 @@ def student_dashboard_view(request):
             "profile_completion": profile.profile_completion,
             "email_verified": request.user.email_verified,
             "available_courses": courses.count(),
+            "enrolled_courses": profile.enrolments.filter(status=Enrolment.Status.ACTIVE).count(),
+            "completed_courses": profile.enrolments.filter(status=Enrolment.Status.COMPLETED).count(),
             "course_categories": CourseCategory.objects.filter(is_active=True).count(),
         },
         "latest_courses": CourseListSerializer(courses[:4], many=True, context={"request": request}).data,

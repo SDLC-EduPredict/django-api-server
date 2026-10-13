@@ -125,7 +125,7 @@ class StudentProfileApiTests(StudentTestData):
         response = self.client.get("/api/student/dashboard/")
         self.assertEqual(response.status_code, 200)
         data = response.json()["data"]
-        self.assertEqual(data["summary"], {"profile_completion": 0, "email_verified": False, "available_courses": 5, "course_categories": 1})
+        self.assertEqual(data["summary"], {"profile_completion": 0, "email_verified": False, "available_courses": 5, "enrolled_courses": 0, "completed_courses": 0, "course_categories": 1})
         self.assertEqual(len(data["latest_courses"]), 4)
         self.assertNotIn("Hidden", [course["title"] for course in data["latest_courses"]])
         self.act_as(self.faculty)
