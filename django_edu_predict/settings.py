@@ -28,10 +28,10 @@ INSTALLED_APPS = [
     'permissions',              # Phase 2 - Permission + RolePermission tables
     'courses',                  # Phase 3
     'students',                 # Phase 3
-    # 'enrolments',             # Phase 4
-    # 'attendance',             # Phase 4
-    # 'assignments',            # Phase 4
-    # 'assessments',            # Phase 4
+    'enrolments',               # Phase 4
+    'attendance',               # Phase 4
+    'assignments',              # Phase 4
+    'assessments',              # Phase 4
     # 'performance',            # Phase 5
     # 'ml_prediction',          # Phase 6
     # 'notifications',          # Phase 7

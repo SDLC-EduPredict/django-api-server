@@ -36,6 +36,7 @@ MARK_ATTENDANCE = "MARK_ATTENDANCE"
 
 # ---- Assignments
 VIEW_OWN_ASSIGNMENTS = "VIEW_OWN_ASSIGNMENTS"
+SUBMIT_ASSIGNMENTS = "SUBMIT_ASSIGNMENTS"
 MANAGE_ASSIGNMENTS = "MANAGE_ASSIGNMENTS"
 GRADE_ASSIGNMENTS = "GRADE_ASSIGNMENTS"
 
@@ -84,10 +85,11 @@ PERMISSION_DESCRIPTIONS: dict[str, str] = {
     VIEW_ATTENDANCE: "View attendance of students",
     MARK_ATTENDANCE: "Mark attendance",
     VIEW_OWN_ASSIGNMENTS: "View own assignments and marks",
-    MANAGE_ASSIGNMENTS: "Create and edit assignments",
+    SUBMIT_ASSIGNMENTS: "Submit or complete own assignments",
+    MANAGE_ASSIGNMENTS: "Create and edit assignments (faculty: only for own courses)",
     GRADE_ASSIGNMENTS: "Give marks to assignment submissions",
     VIEW_OWN_RESULTS: "View own assessment results",
-    MANAGE_ASSESSMENTS: "Create and edit assessments",
+    MANAGE_ASSESSMENTS: "Create and edit mock tests and exams (faculty: only for own courses)",
     ENTER_MARKS: "Enter assessment marks",
     VIEW_OWN_PERFORMANCE: "View own performance dashboard",
     VIEW_PERFORMANCE: "View performance of students",
@@ -109,11 +111,12 @@ _OWN_ACCOUNT = [VIEW_OWN_PROFILE, EDIT_OWN_PROFILE, VIEW_NOTIFICATIONS]
 # Run:  python manage.py seed_permissions
 ROLE_PERMISSIONS: dict[str, list[str]] = {
     User.Role.STUDENT: _OWN_ACCOUNT + [
-        ENROL_IN_COURSE, VIEW_OWN_ENROLMENTS, VIEW_OWN_ATTENDANCE, VIEW_OWN_ASSIGNMENTS,
+        ENROL_IN_COURSE, VIEW_OWN_ENROLMENTS, VIEW_OWN_ATTENDANCE, VIEW_OWN_ASSIGNMENTS, SUBMIT_ASSIGNMENTS,
         VIEW_OWN_RESULTS, VIEW_OWN_PERFORMANCE, VIEW_OWN_PREDICTION,
     ],
     User.Role.FACULTY: _OWN_ACCOUNT + [
-        VIEW_STUDENTS, VIEW_ATTENDANCE, MARK_ATTENDANCE, GRADE_ASSIGNMENTS, ENTER_MARKS,
+        VIEW_STUDENTS, VIEW_ATTENDANCE, MARK_ATTENDANCE, MANAGE_ASSIGNMENTS, GRADE_ASSIGNMENTS,
+        MANAGE_ASSESSMENTS, ENTER_MARKS,
         VIEW_PERFORMANCE, VIEW_PREDICTIONS,
     ],
     User.Role.ADMIN: _OWN_ACCOUNT + [
