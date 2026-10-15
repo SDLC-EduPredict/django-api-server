@@ -12,6 +12,8 @@ from courses.models import CourseCategory
 from courses.serializers import CourseListSerializer
 from courses.views.api_views import published_courses
 from enrolments.models import Enrolment
+from performance.utils import performance_summary
+from performance.views.api_views import student_performances
 from permissions.constants import EDIT_OWN_PROFILE, MANAGE_STUDENTS, VIEW_OWN_PROFILE, VIEW_STUDENTS
 from permissions.decorators import permission_required
 from students.forms import StudentFilterForm, StudentProfileForm
@@ -71,6 +73,7 @@ def update_own_profile(request, profile):
 def student_dashboard_view(request):
     profile = get_student_profile(request.user)
     courses = published_courses()
+    performances = list(student_performances(request.user))
 
     return success_response("Student dashboard fetched successfully.", {
         "profile": StudentProfileSerializer(profile, context={"request": request}).data,
@@ -82,6 +85,7 @@ def student_dashboard_view(request):
             "completed_courses": profile.enrolments.filter(status=Enrolment.Status.COMPLETED).count(),
             "course_categories": CourseCategory.objects.filter(is_active=True).count(),
         },
+        "performance": {"courses": len(performances), **performance_summary(performances)},
         "latest_courses": CourseListSerializer(courses[:4], many=True, context={"request": request}).data,
     })
 
