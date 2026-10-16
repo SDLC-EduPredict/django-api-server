@@ -69,6 +69,7 @@ ml_models/*.pkl
 ml_models/*.joblib
 ml_models/*.pickle
 ml_models/*.onnx
+ml_prediction/ml_model/*.pkl
 
 # Generated files
 *.tmp

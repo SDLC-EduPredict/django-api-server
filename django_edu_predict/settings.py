@@ -33,7 +33,7 @@ INSTALLED_APPS = [
     'assignments',              # Phase 4
     'assessments',              # Phase 4
     'performance',              # Phase 5
-    # 'ml_prediction',            # Phase 6
+    'ml_prediction',            # Phase 6
     # 'notifications',            # Phase 7
 ]
 
@@ -100,6 +100,8 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / "media"
+
+ML_MODEL_DIR = BASE_DIR / "ml_prediction" / "ml_model"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
