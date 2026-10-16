@@ -1,0 +1,237 @@
+import logging
+
+from django.db.models import F, Q
+from rest_framework import status
+from rest_framework.decorators import api_view
+
+from accounts.decorators import jwt_required, role_required
+from accounts.models import User
+from core.responses import error_response, paginated_response, success_response
+from enrolments.forms import StudentCourseFilterForm
+from enrolments.serializers import CourseShortSerializer, StudentShortSerializer
+from enrolments.utils import GRADABLE_STATUSES, STAFF_ROLES, staff_enrolments
+from ml_prediction.decorators import model_required
+from ml_prediction.forms import EnrolmentPredictionForm, PredictionFilterForm, PredictionInputForm, TrainModelForm
+from ml_prediction.models import MLModelVersion, Prediction
+from ml_prediction.serializers import MLModelVersionSerializer, MLModelVersionShortSerializer, PredictionSerializer, StaffPredictionSerializer
+from ml_prediction.services import (
+    ModelNotReady, TrainingError, activate_model, missing_features, performance_features, predict_score, refresh_prediction,
+    refresh_predictions, train_model as train_new_model)
+from performance.models import Performance
+from performance.utils import performance_indicator
+from performance.views.api_views import staff_performances, student_performances
+from permissions.constants import MANAGE_ML_MODEL, RUN_PREDICTION, VIEW_OWN_PREDICTION, VIEW_PREDICTIONS
+from permissions.decorators import permission_required
+from students.models import StudentProfile
+
+logger = logging.getLogger(__name__)
+
+ADMIN_ROLES = (User.Role.ADMIN, User.Role.SUPER_ADMIN)
+
+PREDICTION_NOTE = "This is an estimate made by a Linear Regression model from the current academic data. It is not the final result."
+
+ORDERINGS = {
+    "predicted_final_score": F("predicted_final_score").asc(),
+    "-predicted_final_score": F("predicted_final_score").desc(),
+    "enrolment__student__student_code": F("enrolment__student__student_code").asc(),
+}
+
+
+def with_predictions(performances):
+    return performances.select_related("enrolment__prediction").filter(enrolment__status__in=GRADABLE_STATUSES)
+
+
+def prediction_card(performance, prediction) -> dict:
+    values = performance_features(performance)
+    return {
+        "enrolment_id": performance.enrolment_id,
+        "course": CourseShortSerializer(performance.enrolment.course).data,
+        "features": values,
+        "missing_features": missing_features(values),
+        "prediction": PredictionSerializer(prediction).data if prediction else None,
+    }
+
+
+def prediction_cards(performances, version) -> list[dict]:
+    performances = list(performances)
+    predictions = refresh_predictions(performances, version)
+    return [prediction_card(performance, predictions[performance.enrolment_id]) for performance in performances]
+
+
+def staff_predictions(user):
+    predictions = (Prediction.objects
+                   .select_related("enrolment__student__user", "enrolment__course", "model_version")
+                   .filter(enrolment__status__in=GRADABLE_STATUSES))
+    if user.role == User.Role.FACULTY:
+        return predictions.filter(enrolment__course__faculty=user)
+    return predictions
+
+
+@api_view(["POST"])
+@jwt_required
+@role_required(*ADMIN_ROLES)
+@permission_required(RUN_PREDICTION)
+@model_required
+def predict(request):
+    if "enrolment" in request.data:
+        return predict_for_enrolment(request)
+
+    form = PredictionInputForm(request.data)
+    if not form.is_valid():
+        return error_response("Prediction failed. Check the input values.", form.errors)
+
+    values = form.feature_values()
+    score = predict_score(request.model_version, values)
+    indicator = performance_indicator(score)
+    return success_response("Prediction generated successfully.", {
+        "predicted_final_score": score,
+        "max_score": 100,
+        "indicator": indicator,
+        "indicator_display": Performance.Indicator(indicator).label,
+        "input": values,
+        "model_version": MLModelVersionShortSerializer(request.model_version).data,
+        "note": PREDICTION_NOTE,
+    })
+
+
+def predict_for_enrolment(request):
+    form = EnrolmentPredictionForm(request.data, enrolments=staff_enrolments(request.user))
+    if not form.is_valid():
+        return error_response("Prediction failed.", form.errors)
+
+    enrolment = form.cleaned_data["enrolment"]
+    performance = with_predictions(Performance.objects.select_related("enrolment__course")).filter(enrolment=enrolment).first()
+    if performance is None:
+        return error_response("This enrolment has no performance record yet.", status_code=status.HTTP_404_NOT_FOUND)
+
+    prediction = refresh_prediction(performance, request.model_version)
+    if prediction is None:
+        return error_response(
+            "Not enough academic data to predict a final score for this enrolment.",
+            {"missing_features": missing_features(performance_features(performance))})
+
+    logger.info("Prediction for %s generated by %s: %s", enrolment, request.user.email, prediction.predicted_final_score)
+    return success_response("Prediction generated successfully.", {
+        "student": StudentShortSerializer(enrolment.student).data,
+        **prediction_card(performance, prediction),
+        "note": PREDICTION_NOTE,
+    })
+
+
+@api_view(["GET"])
+@jwt_required
+@role_required(User.Role.STUDENT)
+@permission_required(VIEW_OWN_PREDICTION)
+@model_required
+def student_prediction(request):
+    form = StudentCourseFilterForm(request.query_params)
+    if not form.is_valid():
+        return error_response("Invalid filter values.", form.errors)
+
+    performances = with_predictions(student_performances(request.user))
+    if form.cleaned_data["course"]:
+        performances = performances.filter(enrolment__course_id=form.cleaned_data["course"])
+
+    return success_response("Predictions fetched successfully.", {
+        "courses": prediction_cards(performances, request.model_version),
+        "note": PREDICTION_NOTE,
+    })
+
+
+@api_view(["GET"])
+@jwt_required
+@role_required(*STAFF_ROLES)
+@permission_required(VIEW_PREDICTIONS)
+@model_required
+def student_prediction_detail(request, student_id):
+    student = StudentProfile.objects.select_related("user").filter(pk=student_id).first()
+    performances = with_predictions(staff_performances(request.user)).filter(enrolment__student_id=student_id)
+
+    if student is None or (request.user.role == User.Role.FACULTY and not performances.exists()):
+        return error_response("Student not found.", status_code=status.HTTP_404_NOT_FOUND)
+
+    return success_response("Student prediction fetched successfully.", {
+        "student": StudentShortSerializer(student).data,
+        "courses": prediction_cards(performances, request.model_version),
+        "note": PREDICTION_NOTE,
+    })
+
+
+@api_view(["GET"])
+@jwt_required
+@role_required(*STAFF_ROLES)
+@permission_required(VIEW_PREDICTIONS)
+@model_required
+def prediction_list(request):
+    form = PredictionFilterForm(request.query_params)
+    if not form.is_valid():
+        return error_response("Invalid search or filter values.", form.errors)
+
+    refresh_predictions(with_predictions(staff_performances(request.user)), request.model_version)
+
+    filters = form.cleaned_data
+    predictions = staff_predictions(request.user)
+
+    for word in filters["search"].split():
+        predictions = predictions.filter(
+            Q(enrolment__student__student_code__icontains=word) | Q(enrolment__student__user__first_name__icontains=word)
+            | Q(enrolment__student__user__last_name__icontains=word) | Q(enrolment__student__user__email__icontains=word)
+            | Q(enrolment__course__title__icontains=word))
+    if filters["course"]:
+        predictions = predictions.filter(enrolment__course_id=filters["course"])
+    if filters["status"]:
+        predictions = predictions.filter(enrolment__status=filters["status"])
+    if filters["indicator"]:
+        predictions = predictions.filter(indicator=filters["indicator"])
+    if filters["ordering"]:
+        predictions = predictions.order_by(ORDERINGS[filters["ordering"]], "id")
+
+    return paginated_response(request, predictions, StaffPredictionSerializer, "Predictions fetched successfully.")
+
+
+@api_view(["POST"])
+@jwt_required
+@role_required(*ADMIN_ROLES)
+@permission_required(MANAGE_ML_MODEL)
+def train_model(request):
+    form = TrainModelForm(request.data, request.FILES)
+    if not form.is_valid():
+        return error_response("Model training failed.", form.errors)
+
+    try:
+        version = train_new_model(form.cleaned_data["source"], form.cleaned_data["file"], request.user)
+    except TrainingError as error:
+        return error_response("Model training failed.", {"dataset": [str(error)]})
+
+    return success_response("Model trained successfully!", {"model": MLModelVersionSerializer(version).data}, status.HTTP_201_CREATED)
+
+
+@api_view(["GET"])
+@jwt_required
+@role_required(*ADMIN_ROLES)
+@permission_required(MANAGE_ML_MODEL)
+def model_list(request):
+    versions = MLModelVersion.objects.select_related("trained_by")
+    active = versions.filter(is_active=True).first()
+    return success_response("Model versions fetched successfully.", {
+        "active_model": MLModelVersionSerializer(active).data if active else None,
+        "models": MLModelVersionSerializer(versions, many=True).data,
+    })
+
+
+@api_view(["POST"])
+@jwt_required
+@role_required(*ADMIN_ROLES)
+@permission_required(MANAGE_ML_MODEL)
+def activate_model_version(request, model_id):
+    version = MLModelVersion.objects.filter(pk=model_id).first()
+    if version is None:
+        return error_response("Model version not found.", status_code=status.HTTP_404_NOT_FOUND)
+
+    try:
+        version = activate_model(version)
+    except ModelNotReady as error:
+        return error_response(str(error), status_code=status.HTTP_400_BAD_REQUEST)
+
+    logger.info("ML model %s activated by %s", version.name, request.user.email)
+    return success_response(f"Model {version.name} is now active.", {"model": MLModelVersionSerializer(version).data})

@@ -14,7 +14,7 @@ urlpatterns = [
     path("assignments/", include("assignments.urls.urls")),
     path("assessments/", include("assessments.urls.urls")),
     path("performance/", include("performance.urls.urls")),
-    # path("predictions/", include("ml_prediction.urls.urls")),
+    path("predictions/", include("ml_prediction.urls.urls")),
     # path("notifications/", include("notifications.urls.urls")),
 
 
@@ -28,6 +28,7 @@ urlpatterns = [
     path("api/", include("assignments.urls.api_urls")),
     path("api/", include("assessments.urls.api_urls")),
     path("api/", include("performance.urls.api_urls")),
+    path("api/", include("ml_prediction.urls.api_urls")),
 ]
 
 

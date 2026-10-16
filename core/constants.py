@@ -63,14 +63,14 @@ MODULES: list[dict] = [
         "phase": 5,
         "description": "Aggregated academic indicators per enrolment.",
     },
-    # {
-    #     "key": "ml_prediction",
-    #     "label": "Predictions",
-    #     "group": "Insights",
-    #     "icon": "bi-cpu",
-    #     "phase": 6,
-    #     "description": "Linear Regression model versions and final score predictions.",
-    # },
+    {
+        "key": "ml_prediction",
+        "label": "Predictions",
+        "group": "Insights",
+        "icon": "bi-cpu",
+        "phase": 6,
+        "description": "Linear Regression model versions and final score predictions.",
+    },
     # {
     #     "key": "notifications",
     #     "label": "Notifications",
@@ -94,8 +94,8 @@ ENTITY_LABELS: list[str] = [
     "assessments.Assessment",
     "assessments.AssessmentResult",
     "performance.Performance",
-    # "ml_prediction.MLModelVersion",
-    # "ml_prediction.Prediction",
+    "ml_prediction.MLModelVersion",
+    "ml_prediction.Prediction",
     # "notifications.Notification",
     # "notifications.DeviceToken",
 ]
