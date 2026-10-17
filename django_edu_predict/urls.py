@@ -15,7 +15,8 @@ urlpatterns = [
     path("assessments/", include("assessments.urls.urls")),
     path("performance/", include("performance.urls.urls")),
     path("predictions/", include("ml_prediction.urls.urls")),
-    # path("notifications/", include("notifications.urls.urls")),
+    path("notifications/", include("notifications.urls.urls")),
+    path("analytics/", include("analytics.urls.urls")),
 
 
     # APIs
@@ -29,6 +30,8 @@ urlpatterns = [
     path("api/", include("assessments.urls.api_urls")),
     path("api/", include("performance.urls.api_urls")),
     path("api/", include("ml_prediction.urls.api_urls")),
+    path("api/", include("notifications.urls.api_urls")),
+    path("api/", include("analytics.urls.api_urls")),
 ]
 
 
