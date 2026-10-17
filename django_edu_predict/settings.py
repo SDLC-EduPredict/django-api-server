@@ -34,7 +34,8 @@ INSTALLED_APPS = [
     'assessments',              # Phase 4
     'performance',              # Phase 5
     'ml_prediction',            # Phase 6
-    # 'notifications',            # Phase 7
+    'notifications',            # Phase 7
+    'analytics',                # Phase 7
 ]
 
 MIDDLEWARE = [
