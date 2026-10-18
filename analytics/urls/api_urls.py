@@ -5,7 +5,7 @@ app_name = "analytics_api"
 
 
 urlpatterns = [
-    path("admin/dashboard/", api_views.admin_dashboard, name="admin_dashboard"),                                                            # 
+    path("admin/dashboard/", api_views.admin_dashboard, name="admin_dashboard"),                                                            # ADMIN - GET
     path("faculty/dashboard/", api_views.faculty_dashboard, name="faculty_dashboard"),                                                      # 
     path("faculty/students/", api_views.my_students, name="my_students"),                                                                   # 
     path("faculty/students/<int:student_id>/", api_views.student_report, name="student_report"),                                            # 
