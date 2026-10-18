@@ -27,6 +27,6 @@ urlpatterns = [
     path("admin/users/", api_views.user_list_create, name="user_list_create"),                                              # SUPER ADMIN - GET, POST
     path("admin/users/<uuid:user_id>/", api_views.user_detail, name="user_detail"),                                         # SUPER ADMIN - GET, PATCH, DELETE
 
-    path("admin/faculty/", api_views.admin_faculty_list_create, name="admin_faculty_list_create"),                          # 
-    path("admin/faculty/<int:faculty_id>/", api_views.admin_faculty_detail, name="admin_faculty_detail"),                   # 
+    path("admin/faculty/", api_views.admin_faculty_list_create, name="admin_faculty_list_create"),                          # ADMIN - GET, POST
+    path("admin/faculty/<int:faculty_id>/", api_views.admin_faculty_detail, name="admin_faculty_detail"),                   # ADMIN - GET, PATCH, DELETE
 ]
