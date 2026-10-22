@@ -15,3 +15,5 @@ urlpatterns = [
     path("admin/notifications/", api_views.admin_notification_list_send, name="admin_notification_list_send"),                              # STAFF - GET, POST
     path("admin/notifications/<int:notification_id>/", api_views.admin_notification_delete, name="admin_notification_delete"),              # STAFF - DELETE
 ]
+
+# delete celery.py if it's not being used.
