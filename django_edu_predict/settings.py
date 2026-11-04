@@ -34,7 +34,8 @@ INSTALLED_APPS = [
     'assessments',              # Phase 4
     'performance',              # Phase 5
     'ml_prediction',            # Phase 6
-    # 'notifications',            # Phase 7
+    'notifications',            # Phase 7
+    'analytics',                # Phase 7
 ]
 
 MIDDLEWARE = [
@@ -123,21 +124,6 @@ TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")
 TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
 TWILIO_PHONE_NUMBER = os.getenv("TWILIO_PHONE_NUMBER")
 SMS_COUNTRY_CODE = os.getenv("SMS_COUNTRY_CODE")
-
-# ----------------------------------- REDIS-CELERY -----------------------------------
-
-REDIS_URL = os.getenv("REDIS_URL")
-
-# Redis configuration for Celery
-CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL")
-CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND")
-CELERY_ACCEPT_CONTENT = ['json']
-CELERY_TIMEZONE = 'Asia/Kolkata'
-CELERY_TASK_SERIALIZER = 'json'
-CELERY_TASK_TRACK_STARTED = True
-CELERY_TASK_ACKS_LATE = True
-CELERY_TASK_ALWAYS_EAGER = os.getenv("CELERY_TASK_ALWAYS_EAGER")
-CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 
 
 # ----------------------------------- REST_FRAMEWORK -----------------------------------
@@ -233,8 +219,6 @@ LOGGING = {
 # 192.168.0.103
 # This change is to be made in flutter app's baseurl, django's settings.py
 
-# redis-server
-# celery -A nutrivision_food_recognition worker -l info
 # python manage.py seed_permissions
 # python manage.py test
 

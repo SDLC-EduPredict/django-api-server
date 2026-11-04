@@ -1,3 +1,4 @@
+from django.dispatch import Signal
 from django.utils import timezone
 from assessments.utils import assessment_summary
 from assignments.utils import assignment_summary
@@ -18,6 +19,8 @@ SUMMARY_FIELDS = [
 
 ML_FEATURES = ["attendance", "assignment_average", "mock_test_average", "practice_hours", "previous_score", "modules_completed", "participation"]
 ML_TARGET = "final_score"
+
+indicator_changed = Signal()
 
 
 def performance_indicator(score):
@@ -69,10 +72,17 @@ def refresh_performance(enrolment_id, create=True):
         performance.save()
         return performance
 
+    old_indicator = performance.indicator
     calculate_performance(performance)
     values = {field: getattr(performance, field) for field in Performance.CALCULATED_FIELDS}
     Performance.objects.filter(pk=performance.pk).update(**values)
+    send_indicator_changed(performance, old_indicator)
     return performance
+
+
+def send_indicator_changed(performance, old_indicator) -> None:
+    if performance.indicator != old_indicator:
+        indicator_changed.send(sender=Performance, performance=performance, old_indicator=old_indicator)
 
 
 def refresh_course_performances(course_id) -> None:

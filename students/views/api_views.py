@@ -1,12 +1,14 @@
 import logging
 
+from django.db import transaction
 from django.db.models import Q
 from rest_framework import status
 from rest_framework.decorators import api_view
 
 from accounts.decorators import jwt_required, role_required
-from accounts.forms import ProfileUpdateForm, with_current_values
+from accounts.forms import AccountCreateForm, AccountUpdateForm, ProfileUpdateForm, with_current_values
 from accounts.models import User
+from accounts.tokens import revoke_all_refresh_tokens
 from core.responses import error_response, paginated_response, success_response
 from courses.models import CourseCategory
 from courses.serializers import CourseListSerializer
@@ -28,8 +30,8 @@ def get_student_profile(user):
     return profile
 
 
-def save_student(request, profile, message):
-    user_form = ProfileUpdateForm(with_current_values(profile.user, ProfileUpdateForm, request.data), instance=profile.user)
+def save_student(request, profile, message, user_form_class=ProfileUpdateForm):
+    user_form = user_form_class(with_current_values(profile.user, user_form_class, request.data), instance=profile.user)
     profile_form = StudentProfileForm(with_current_values(profile, StudentProfileForm, request.data), request.FILES, instance=profile)
 
     user_form_ok = user_form.is_valid()
@@ -37,8 +39,10 @@ def save_student(request, profile, message):
     if not (user_form_ok and profile_form_ok):
         return error_response("Profile update failed.", {**user_form.errors, **profile_form.errors})
 
-    user_form.save()
+    user = user_form.save()
     profile = profile_form.save()
+    if not user.is_active:
+        revoke_all_refresh_tokens(user)
     logger.info("Student %s updated by %s", profile.student_code, request.user.email)
     data = StudentProfileSerializer(profile, context={"request": request}).data
     return success_response(message, {"profile": data})
@@ -90,11 +94,17 @@ def student_dashboard_view(request):
     })
 
 
-@api_view(["GET"])
+@api_view(["GET", "POST"])
 @jwt_required
 @role_required(User.Role.ADMIN, User.Role.SUPER_ADMIN)
-@permission_required(VIEW_STUDENTS)
 def admin_student_list(request):
+    if request.method == "GET":
+        return list_students(request)
+    return create_student(request)
+
+
+@permission_required(VIEW_STUDENTS)
+def list_students(request):
     form = StudentFilterForm(request.query_params)
     if not form.is_valid():
         return error_response("Invalid search or filter values.", form.errors)
@@ -116,7 +126,28 @@ def admin_student_list(request):
     return paginated_response(request, students, StudentProfileSerializer, "Students fetched successfully.")
 
 
-@api_view(["GET", "PATCH"])
+@permission_required(MANAGE_STUDENTS)
+def create_student(request):
+    account_form = AccountCreateForm(request.data)
+    profile_form = StudentProfileForm(request.data, request.FILES)
+    account_form_ok = account_form.is_valid()
+    profile_form_ok = profile_form.is_valid()
+    if not (account_form_ok and profile_form_ok):
+        return error_response("Student creation failed.", {**account_form.errors, **profile_form.errors})
+
+    with transaction.atomic():
+        user = account_form.save(User.Role.STUDENT)
+        profile_form = StudentProfileForm(request.data, request.FILES, instance=get_student_profile(user))
+        if profile_form.is_valid():
+            profile_form.save()
+
+    profile = get_student_profile(user)
+    logger.info("Student %s created by %s", profile.student_code, request.user.email)
+    data = StudentProfileSerializer(profile, context={"request": request}).data
+    return success_response("Student created successfully!", {"profile": data}, status.HTTP_201_CREATED)
+
+
+@api_view(["GET", "PATCH", "DELETE"])
 @jwt_required
 @role_required(User.Role.ADMIN, User.Role.SUPER_ADMIN)
 def admin_student_detail(request, student_id):
@@ -126,7 +157,9 @@ def admin_student_detail(request, student_id):
 
     if request.method == "GET":
         return show_student(request, profile)
-    return update_student(request, profile)
+    if request.method == "PATCH":
+        return update_student(request, profile)
+    return deactivate_student(request, profile)
 
 
 @permission_required(VIEW_STUDENTS)
@@ -137,4 +170,14 @@ def show_student(request, profile):
 
 @permission_required(MANAGE_STUDENTS)
 def update_student(request, profile):
-    return save_student(request, profile, "Student updated successfully!")
+    return save_student(request, profile, "Student updated successfully!", AccountUpdateForm)
+
+
+@permission_required(MANAGE_STUDENTS)
+def deactivate_student(request, profile):
+    user = profile.user
+    user.is_active = False
+    user.save(update_fields=["is_active"])
+    revoke_all_refresh_tokens(user)
+    logger.info("Student %s deactivated by %s", profile.student_code, request.user.email)
+    return success_response("Student deactivated successfully!")

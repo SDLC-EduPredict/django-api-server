@@ -172,3 +172,31 @@ class AdminStudentApiTests(StudentTestData):
         url = f"/api/admin/students/{self.student.student_profile.id}/"
         self.assertEqual(self.client.get(url).status_code, 200)
         self.assertEqual(self.client.patch(url, {"city": "Delhi"}, format="json").status_code, 403)
+
+class AdminStudentManagementTests(StudentTestData):
+    def test_create_student(self) -> None:
+        self.act_as(self.admin)
+        data = {"email": "sourav@gmail.com", "first_name": "Sourav", "last_name": "Paul", "password": PASSWORD, "city": "Kolkata"}
+        response = self.client.post("/api/admin/students/", data, format="json")
+        self.assertEqual(response.status_code, 201, response.json())
+        profile = response.json()["data"]["profile"]
+        self.assertEqual((profile["student_code"], profile["city"]), (f"ABC-{YEAR}-0003", "Kolkata"))
+
+        response = self.client.post("/api/admin/students/", {**data, "date_of_birth": "2999-01-01"}, format="json")
+        self.assertEqual(set(response.json()["errors"]), {"email", "date_of_birth"})
+
+    def test_deactivate_and_activate_student(self) -> None:
+        self.act_as(self.admin)
+        url = f"/api/admin/students/{self.student.student_profile.id}/"
+        self.assertEqual(self.client.delete(url).status_code, 200)
+        self.student.refresh_from_db()
+        self.assertFalse(self.student.is_active)
+
+        response = self.client.patch(url, {"is_active": True}, format="json")
+        self.assertEqual(response.json()["data"]["profile"]["user"]["is_active"], True)
+
+    def test_manage_students_permission_is_needed_to_create_or_deactivate(self) -> None:
+        RolePermission.objects.filter(role=User.Role.ADMIN, permission__name="MANAGE_STUDENTS").delete()
+        self.act_as(self.admin)
+        self.assertEqual(self.client.post("/api/admin/students/", {}, format="json").status_code, 403)
+        self.assertEqual(self.client.delete(f"/api/admin/students/{self.student.student_profile.id}/").status_code, 403)

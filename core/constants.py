@@ -71,14 +71,22 @@ MODULES: list[dict] = [
         "phase": 6,
         "description": "Linear Regression model versions and final score predictions.",
     },
-    # {
-    #     "key": "notifications",
-    #     "label": "Notifications",
-    #     "group": "Insights",
-    #     "icon": "bi-bell",
-    #     "phase": 7,
-    #     "description": "In-app notifications and mobile device tokens.",
-    # },
+    {
+        "key": "notifications",
+        "label": "Notifications",
+        "group": "Insights",
+        "icon": "bi-bell",
+        "phase": 7,
+        "description": "Course, assignment, assessment, academic alert and administrative notifications.",
+    },
+    {
+        "key": "analytics",
+        "label": "Analytics",
+        "group": "Insights",
+        "icon": "bi-bar-chart-line",
+        "phase": 7,
+        "description": "Admin and faculty dashboards, course performance, students needing attention and prediction reports.",
+    },
 ]
 
 ENTITY_LABELS: list[str] = [
@@ -96,6 +104,5 @@ ENTITY_LABELS: list[str] = [
     "performance.Performance",
     "ml_prediction.MLModelVersion",
     "ml_prediction.Prediction",
-    # "notifications.Notification",
-    # "notifications.DeviceToken",
+    "notifications.Notification",
 ]

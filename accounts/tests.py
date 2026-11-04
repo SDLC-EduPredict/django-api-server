@@ -873,3 +873,61 @@ class FacultyProfileApiTests(TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertIn("phone", response.json()["errors"])
         self.assertIn("first_name", response.json()["errors"])
+
+
+class AdminFacultyApiTests(TestCase):
+    URL = "/api/admin/faculty/"
+
+    def setUp(self) -> None:
+        call_command("seed_permissions", stdout=StringIO())
+        self.client = APIClient()
+        self.admin = User.objects.create_user("manager@gmail.com", PASSWORD, first_name="Manager", role=User.Role.ADMIN)
+        self.faculty = User.objects.create_user("ananya@gmail.com", PASSWORD, first_name="Ananya", role=User.Role.FACULTY)
+        self.pending = User.objects.create_user("neha@gmail.com", PASSWORD, first_name="Neha", role=User.Role.FACULTY, is_active=False)
+        self.student = User.objects.create_user("rahul@gmail.com", PASSWORD, first_name="Rahul")
+
+    def act_as(self, user) -> None:
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {create_access_token(user)}")
+
+    def test_only_admins_with_manage_faculty(self) -> None:
+        for user in (self.student, self.faculty):
+            self.act_as(user)
+            self.assertEqual(self.client.get(self.URL).status_code, 403)
+        RolePermission.objects.filter(role="ADMIN", permission__name="MANAGE_FACULTY").delete()
+        self.act_as(self.admin)
+        self.assertEqual(self.client.get(self.URL).status_code, 403)
+
+    def test_list_and_filters(self) -> None:
+        self.act_as(self.admin)
+        body = self.client.get(self.URL).json()["data"]
+        self.assertEqual(body["count"], 2)
+        self.assertEqual(body["results"][0]["course_count"], 0)
+        pending = self.client.get(f"{self.URL}?is_active=false").json()["data"]["results"]
+        self.assertEqual([item["user"]["email"] for item in pending], ["neha@gmail.com"])
+        self.assertEqual(self.client.get(f"{self.URL}?search=ananya").json()["data"]["count"], 1)
+
+    def test_create_faculty(self) -> None:
+        self.act_as(self.admin)
+        data = {"email": "Sourav@Gmail.com", "first_name": "Sourav", "last_name": "Paul", "password": PASSWORD, "designation": "Trainer"}
+        response = self.client.post(self.URL, data, format="json")
+        self.assertEqual(response.status_code, 201, response.json())
+        faculty = response.json()["data"]["faculty"]
+        self.assertEqual((faculty["user"]["email"], faculty["user"]["is_active"], faculty["designation"]), ("sourav@gmail.com", True, "Trainer"))
+        self.assertEqual(User.objects.get(email="sourav@gmail.com").role, User.Role.FACULTY)
+
+        response = self.client.post(self.URL, {**data, "password": "weak"}, format="json")
+        self.assertEqual(set(response.json()["errors"]), {"email", "password"})
+
+    def test_approve_update_and_deactivate(self) -> None:
+        self.act_as(self.admin)
+        url = f"{self.URL}{self.pending.faculty_profile.id}/"
+        response = self.client.patch(url, {"is_active": True, "expertise": "Django"}, format="json")
+        self.assertEqual(response.status_code, 200, response.json())
+        self.assertEqual(response.json()["data"]["faculty"]["expertise"], "Django")
+        self.pending.refresh_from_db()
+        self.assertTrue(self.pending.is_active)
+
+        self.assertEqual(self.client.delete(url).status_code, 200)
+        self.pending.refresh_from_db()
+        self.assertFalse(self.pending.is_active)
+        self.assertEqual(self.client.get(f"{self.URL}99999/").status_code, 404)

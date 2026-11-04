@@ -52,6 +52,27 @@ def student_performance_card(performance) -> dict:
     }
 
 
+def filter_performances(performances, filters):
+    for word in filters["search"].split():
+        performances = performances.filter(
+            Q(enrolment__student__student_code__icontains=word) | Q(enrolment__student__user__first_name__icontains=word)
+            | Q(enrolment__student__user__last_name__icontains=word) | Q(enrolment__student__user__email__icontains=word)
+            | Q(enrolment__course__title__icontains=word))
+    if filters["course"]:
+        performances = performances.filter(enrolment__course_id=filters["course"])
+    if filters["enrolment"]:
+        performances = performances.filter(enrolment_id=filters["enrolment"])
+    if filters["status"]:
+        performances = performances.filter(enrolment__status=filters["status"])
+    if filters["indicator"]:
+        performances = performances.filter(indicator=filters["indicator"])
+    if filters["participation"]:
+        performances = performances.filter(participation=filters["participation"])
+    if filters["ordering"]:
+        performances = performances.order_by(ORDERINGS[filters["ordering"]], "id")
+    return performances
+
+
 def csv_response(rows):
     response = HttpResponse(content_type="text/csv")
     response["Content-Disposition"] = 'attachment; filename="edu_predict_performance_dataset.csv"'
@@ -90,27 +111,7 @@ def performance_list(request):
     if not form.is_valid():
         return error_response("Invalid search or filter values.", form.errors)
 
-    filters = form.cleaned_data
-    performances = staff_performances(request.user)
-
-    for word in filters["search"].split():
-        performances = performances.filter(
-            Q(enrolment__student__student_code__icontains=word) | Q(enrolment__student__user__first_name__icontains=word)
-            | Q(enrolment__student__user__last_name__icontains=word) | Q(enrolment__student__user__email__icontains=word)
-            | Q(enrolment__course__title__icontains=word))
-    if filters["course"]:
-        performances = performances.filter(enrolment__course_id=filters["course"])
-    if filters["enrolment"]:
-        performances = performances.filter(enrolment_id=filters["enrolment"])
-    if filters["status"]:
-        performances = performances.filter(enrolment__status=filters["status"])
-    if filters["indicator"]:
-        performances = performances.filter(indicator=filters["indicator"])
-    if filters["participation"]:
-        performances = performances.filter(participation=filters["participation"])
-    if filters["ordering"]:
-        performances = performances.order_by(ORDERINGS[filters["ordering"]], "id")
-
+    performances = filter_performances(staff_performances(request.user), form.cleaned_data)
     return paginated_response(request, performances, StaffPerformanceSerializer, "Performance records fetched successfully.")
 
 

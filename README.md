@@ -233,9 +233,24 @@ Recommended implementation:
 
 ## 7. REST API
 
+### API Documentation (Postman)
+
+The complete, up-to-date collection of implemented APIs — with request bodies, headers, example responses and the JWT Bearer authentication flow — is published as Postman documentation:
+
+| Collection | Audience | Documentation |
+|---|---|---|
+| **Edu-Predict-SuperAdmin-Flutter** | Super Admin (Flutter app) — users, roles, permissions and system configuration | [View on Postman](https://documenter.getpostman.com/view/33691184/2sBYHXPd5k) |
+| **Edu-Predict-Dev** | Students, Faculty/Staff and Admin (React frontend) — accounts, courses, enrolments, attendance, assignments, assessments, performance, ML prediction, notifications, dashboards and reports | [View on Postman](https://documenter.getpostman.com/view/33691184/2sBYHRWhHo) |
+
+Each published page has a **Run in Postman** option for importing the collection. Set the base URL (for example `http://127.0.0.1:8000`) and the access token in the Postman environment before sending requests.
+
+> The Postman documentation is the source of truth for the implemented API surface. The endpoint list below is the indicative, requirements-level API from the project specification.
+
+### Indicative Endpoints (Project Specification)
+
 The PDF specifies the following indicative API endpoints.
 
-### Authentication
+#### Authentication
 
 ```http
 POST /api/auth/register/
@@ -243,14 +258,14 @@ POST /api/auth/login/
 POST /api/auth/logout/
 ```
 
-### Courses
+#### Courses
 
 ```http
 GET /api/courses/
 GET /api/courses/{id}/
 ```
 
-### Student
+#### Student
 
 ```http
 GET /api/student/profile/
@@ -261,14 +276,14 @@ GET /api/student/results/
 GET /api/student/performance/
 ```
 
-### ML Prediction
+#### ML Prediction
 
 ```http
 POST /api/ml/predict/
 GET /api/ml/prediction/{student_id}/
 ```
 
-### Administration
+#### Administration
 
 ```http
 GET /api/admin/dashboard/
@@ -756,7 +771,7 @@ The report's `83.7 / 100` prediction is illustrative only; it must not be hard-c
 - Object-level authorization
 - Consistent error responses
 - Automated tests
-- API documentation
+- API documentation ([Super Admin](https://documenter.getpostman.com/view/33691184/2sBYHXPd5k) · [Users/Faculty/Admin](https://documenter.getpostman.com/view/33691184/2sBYHRWhHo))
 
 ## 21. Important Implementation Notes
 

@@ -199,3 +199,40 @@ class AdminUserUpdateForm(forms.ModelForm):
         if commit:
             user.save()
         return user
+
+class AccountCreateForm(forms.ModelForm):
+    password = forms.CharField(widget=forms.PasswordInput)
+
+    class Meta:
+        model = User
+        fields: tuple = ("email", "first_name", "last_name", "phone")
+
+    def clean_email(self) -> str:
+        return self.cleaned_data["email"].lower()
+
+    def clean(self):
+        cleaned_data = super().clean()
+        user = User(email=cleaned_data.get("email", ""), first_name=cleaned_data.get("first_name", ""))
+        check_password_strength(self, cleaned_data.get("password"), user=user)
+        return cleaned_data
+
+    def save(self, role: str) -> User:
+        data = self.cleaned_data
+        return User.objects.create_user(
+            email=data["email"],
+            password=data["password"],
+            first_name=data["first_name"],
+            last_name=data["last_name"],
+            phone=data["phone"],
+            role=role)
+
+
+class AccountUpdateForm(forms.ModelForm):
+    class Meta:
+        model = User
+        fields: tuple = ("first_name", "last_name", "phone", "is_active")
+
+
+class FacultyFilterForm(forms.Form):
+    search = forms.CharField(required=False)
+    is_active = forms.NullBooleanField(required=False)

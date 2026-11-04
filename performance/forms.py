@@ -1,7 +1,7 @@
 from django import forms
 from enrolments.models import Enrolment
 from performance.models import Performance
-from performance.utils import calculate_performance
+from performance.utils import calculate_performance, send_indicator_changed
 
 
 class PerformanceInputForm(forms.ModelForm):
@@ -15,9 +15,11 @@ class PerformanceInputForm(forms.ModelForm):
 
     def save(self) -> Performance:
         performance = super().save(commit=False)
+        old_indicator = performance.indicator
         performance.updated_by = self.user
         calculate_performance(performance)
         performance.save()
+        send_indicator_changed(performance, old_indicator)
         return performance
 
 
@@ -49,4 +51,3 @@ class DatasetFilterForm(forms.Form):
     EXPORT_CHOICES = [("json", "JSON"), ("csv", "CSV file")]
 
     course = forms.IntegerField(required=False)
-    export = forms.ChoiceField(choices=EXPORT_CHOICES, required=False)

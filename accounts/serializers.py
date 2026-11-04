@@ -20,3 +20,11 @@ class FacultyProfileSerializer(serializers.ModelSerializer):
         model = FacultyProfile
         fields = ("id", "employee_code", "user", "designation", "expertise", "bio", "photo", "created_at", "updated_at")
         read_only_fields = fields
+
+class AdminFacultySerializer(FacultyProfileSerializer):
+    course_count = serializers.IntegerField(read_only=True)
+    student_count = serializers.IntegerField(read_only=True)
+
+    class Meta(FacultyProfileSerializer.Meta):
+        fields = FacultyProfileSerializer.Meta.fields + ("course_count", "student_count")
+        read_only_fields = fields

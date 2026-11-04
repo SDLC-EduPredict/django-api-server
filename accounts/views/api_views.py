@@ -2,16 +2,20 @@ import logging
 
 import jwt
 from django.contrib.auth import authenticate
-from django.db.models import Q
+from django.db import transaction
+from django.db.models import Count, Q
 from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.pagination import PageNumberPagination
 
 from accounts.decorators import jwt_required, role_required
 from accounts.forms import (
+    AccountCreateForm,
+    AccountUpdateForm,
     AdminUserCreateForm,
     AdminUserUpdateForm,
     ChangePasswordForm,
+    FacultyFilterForm,
     FacultyProfileForm,
     ForgotPasswordForm,
     LoginForm,
@@ -23,10 +27,11 @@ from accounts.forms import (
     with_current_values)
 from accounts.models import OTP, FacultyProfile, RefreshToken, User
 from accounts.otp import create_otp, find_user, seconds_to_wait, send_otp, verify_otp
-from accounts.serializers import FacultyProfileSerializer, UserSerializer
+from accounts.serializers import AdminFacultySerializer, FacultyProfileSerializer, UserSerializer
 from accounts.tokens import REFRESH, build_token_response, decode_token, revoke_all_refresh_tokens
-from core.responses import error_response, success_response
-from permissions.constants import EDIT_OWN_PROFILE, MANAGE_USERS, VIEW_OWN_PROFILE
+from core.responses import error_response, paginated_response, success_response
+from enrolments.models import Enrolment
+from permissions.constants import EDIT_OWN_PROFILE, MANAGE_FACULTY, MANAGE_USERS, VIEW_OWN_PROFILE
 from permissions.decorators import permission_required
 from permissions.utils import get_permission_names
 
@@ -363,3 +368,92 @@ def user_detail(request, user_id):
     revoke_all_refresh_tokens(user)
     logger.info("User %s deactivated by %s", user.email, request.user.email)
     return success_response("User deactivated successfully!")
+
+
+def faculty_profiles():
+    active_enrolment = Q(user__courses_taught__enrolments__status=Enrolment.Status.ACTIVE)
+    return (FacultyProfile.objects
+            .select_related("user")
+            .filter(user__role=User.Role.FACULTY)
+            .annotate(
+                course_count=Count("user__courses_taught", distinct=True),
+                student_count=Count("user__courses_taught__enrolments__student", filter=active_enrolment, distinct=True))
+            .order_by("employee_code"))
+
+
+def faculty_data(request, profile) -> dict:
+    profile = faculty_profiles().get(pk=profile.pk)
+    return AdminFacultySerializer(profile, context={"request": request}).data
+
+
+@api_view(["GET", "POST"])
+@jwt_required
+@role_required(User.Role.ADMIN, User.Role.SUPER_ADMIN)
+@permission_required(MANAGE_FACULTY)
+def admin_faculty_list_create(request):
+    if request.method == "GET":
+        form = FacultyFilterForm(request.query_params)
+        if not form.is_valid():
+            return error_response("Invalid search or filter values.", form.errors)
+
+        filters = form.cleaned_data
+        faculty = faculty_profiles()
+        for word in filters["search"].split():
+            faculty = faculty.filter(
+                Q(employee_code__icontains=word) | Q(user__first_name__icontains=word) | Q(user__last_name__icontains=word)
+                | Q(user__email__icontains=word) | Q(designation__icontains=word) | Q(expertise__icontains=word))
+        if filters["is_active"] is not None:
+            faculty = faculty.filter(user__is_active=filters["is_active"])
+        return paginated_response(request, faculty, AdminFacultySerializer, "Faculty fetched successfully.")
+
+    account_form = AccountCreateForm(request.data)
+    profile_form = FacultyProfileForm(request.data, request.FILES)
+    account_form_ok = account_form.is_valid()
+    profile_form_ok = profile_form.is_valid()
+    if not (account_form_ok and profile_form_ok):
+        return error_response("Faculty creation failed.", {**account_form.errors, **profile_form.errors})
+
+    with transaction.atomic():
+        user = account_form.save(User.Role.FACULTY)
+        profile_form = FacultyProfileForm(request.data, request.FILES, instance=user.faculty_profile)
+        if profile_form.is_valid():
+            profile_form.save()
+
+    logger.info("Faculty %s created by %s", user.email, request.user.email)
+    return success_response("Faculty member created successfully!", {"faculty": faculty_data(request, user.faculty_profile)}, status.HTTP_201_CREATED)
+
+
+@api_view(["GET", "PATCH", "DELETE"])
+@jwt_required
+@role_required(User.Role.ADMIN, User.Role.SUPER_ADMIN)
+@permission_required(MANAGE_FACULTY)
+def admin_faculty_detail(request, faculty_id):
+    profile = FacultyProfile.objects.select_related("user").filter(pk=faculty_id, user__role=User.Role.FACULTY).first()
+    if profile is None:
+        return error_response("Faculty member not found.", status_code=status.HTTP_404_NOT_FOUND)
+
+    if request.method == "GET":
+        return success_response("Faculty member fetched successfully.", {"faculty": faculty_data(request, profile)})
+
+    user = profile.user
+    if request.method == "PATCH":
+        user_form = AccountUpdateForm(with_current_values(user, AccountUpdateForm, request.data), instance=user)
+        profile_form = FacultyProfileForm(with_current_values(profile, FacultyProfileForm, request.data), request.FILES, instance=profile)
+
+        user_form_ok = user_form.is_valid()
+        profile_form_ok = profile_form.is_valid()
+        if not (user_form_ok and profile_form_ok):
+            return error_response("Faculty update failed.", {**user_form.errors, **profile_form.errors})
+
+        user = user_form.save()
+        profile_form.save()
+        if not user.is_active:
+            revoke_all_refresh_tokens(user)
+        logger.info("Faculty %s updated by %s", user.email, request.user.email)
+        return success_response("Faculty member updated successfully!", {"faculty": faculty_data(request, profile)})
+
+    user.is_active = False
+    user.save(update_fields=["is_active"])
+    revoke_all_refresh_tokens(user)
+    logger.info("Faculty %s deactivated by %s", user.email, request.user.email)
+    return success_response("Faculty member deactivated successfully!")
