@@ -160,9 +160,13 @@ def verify_phone_otp_view(request):
     if not form.is_valid():
         return error_response("Verification failed.", form.errors)
 
-    error = otp_error(find_user(form.cleaned_data["phone"]), form.cleaned_data["otp"])
+    user = find_user(form.cleaned_data["phone"])
+    error = otp_error(user, form.cleaned_data["otp"])
     if error:
         return error_response(error)
+
+    user.phone_verified = True
+    user.save(update_fields=["phone_verified"])
     return success_response("OTP verified successfully! Your phone number is verified.")
 
 
